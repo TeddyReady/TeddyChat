@@ -17,9 +17,9 @@ MainWindow::~MainWindow()
 }
 
 
-void MainWindow::on_connectButton_clicked()
-{
+void MainWindow::on_connectButton_clicked() {
     socket->connectToHost("127.0.0.1", 2075);
+    ui->connectButton->setDisabled(true);
 }
 
 void MainWindow::slotReadyRead(){
@@ -28,6 +28,7 @@ void MainWindow::slotReadyRead(){
     if (in.status() == QDataStream::Ok){
         QString str;
         in >> str;
+        ui->incomingField->setTextColor(Qt::blue);
         ui->incomingField->append(str);
     } else {
         ui->incomingField->append("Read Error!");

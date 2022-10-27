@@ -1,12 +1,12 @@
 #include <QApplication>
 #include "mainwindow.h"
-#include "myserver.h"
 
 int main(int argc, char *argv[])
 {
-    QApplication a(argc, argv);
-    MyServer server;
+    QApplication app(argc, argv);
     MainWindow w;
+    w.setWindowTitle("Server");
+    w.resize(400, 600);
     w.show();
-    return a.exec();
+    return app.exec();
 }

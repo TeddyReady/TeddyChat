@@ -1,7 +1,7 @@
-#ifndef MAINWINDOW_H
-#define MAINWINDOW_H
-
+#pragma once
 #include <QMainWindow>
+#include <QTime>
+#include "myserver.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -16,6 +16,6 @@ public:
     ~MainWindow();
 
 private:
+    MyServer *server;
     Ui::MainWindow *ui;
 };
-#endif // MAINWINDOW_H
