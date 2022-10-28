@@ -5,6 +5,7 @@
 #include <QDebug>
 #include <QDataStream>
 #include <QString>
+#include "/home/kataich75/qtprojects/TECH/TeddyClient/clientwindow.h"
 
 class MyServer: public QTcpServer {
     Q_OBJECT
@@ -20,4 +21,7 @@ public:
 public slots:
     void incomingConnection(qintptr socketDescriptor);
     void slotReadyRead();
+signals:
+    void newConnection(QString);
+    void clientDisconnected(QString);
 };

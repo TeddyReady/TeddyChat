@@ -13,10 +13,14 @@ void MyServer::incomingConnection(qintptr socketDescriptor){
     socket = new QTcpSocket;
     socket->setSocketDescriptor(socketDescriptor);
     connect(socket, &QTcpSocket::readyRead, this, &MyServer::slotReadyRead);
-    connect(socket, &QTcpSocket::disconnected, socket, &QTcpSocket::deleteLater);
+    connect(socket, &QTcpSocket::disconnected, socket, [this]()
+    {
+        sockets.removeOne(socket);
+        emit clientDisconnected("Client has been removed!");
+    });
 
     sockets.push_back(socket);
-    qDebug() << "Client has been connected!" << socketDescriptor;
+    emit newConnection("Client has been connected!");
 }
 
 void MyServer::slotReadyRead(){

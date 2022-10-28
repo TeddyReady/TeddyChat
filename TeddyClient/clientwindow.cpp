@@ -1,28 +1,27 @@
-#include "mainwindow.h"
-#include "ui_mainwindow.h"
+#include "clientwindow.h"
+#include "ui_clientwindow.h"
 
-MainWindow::MainWindow(QWidget *parent)
+ClientWindow::ClientWindow(QWidget *parent)
     : QMainWindow(parent)
-    , ui(new Ui::MainWindow)
+    , ui(new Ui::ClientWindow)
 {
     ui->setupUi(this);
     socket = new QTcpSocket(this);
-    connect(socket, &QTcpSocket::readyRead, this, &MainWindow::slotReadyRead);
+    connect(socket, &QTcpSocket::readyRead, this, &ClientWindow::slotReadyRead);
     connect(socket, &QTcpSocket::disconnected, socket, &QTcpSocket::deleteLater);
 }
 
-MainWindow::~MainWindow()
-{
+ClientWindow::~ClientWindow() {
+    //socket->disconnectFromHost();
     delete ui;
 }
 
-
-void MainWindow::on_connectButton_clicked() {
+void ClientWindow::on_connectButton_clicked() {
     socket->connectToHost("127.0.0.1", 2075);
     ui->connectButton->setDisabled(true);
 }
 
-void MainWindow::slotReadyRead(){
+void ClientWindow::slotReadyRead(){
     QDataStream in(socket);
     in.setVersion(QDataStream::Qt_5_12);
     if (in.status() == QDataStream::Ok){
@@ -35,19 +34,19 @@ void MainWindow::slotReadyRead(){
     }
 }
 
-void MainWindow::sendToServer(QString str){
+void ClientWindow::sendToServer(QString str){
     data.clear();
     QDataStream out(&data, QIODevice::WriteOnly);
     out.setVersion(QDataStream::Qt_5_12);
     out << str;
     socket->write(data);
 }
-void MainWindow::on_sendButton_clicked()
+void ClientWindow::on_sendButton_clicked()
 {
     sendToServer(ui->messageField->text());
 }
 
-void MainWindow::on_messageField_returnPressed()
+void ClientWindow::on_messageField_returnPressed()
 {
     sendToServer(ui->messageField->text());
 }

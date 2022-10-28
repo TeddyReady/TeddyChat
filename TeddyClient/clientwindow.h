@@ -3,16 +3,16 @@
 #include <QTcpSocket>
 
 QT_BEGIN_NAMESPACE
-namespace Ui { class MainWindow; }
+namespace Ui { class ClientWindow; }
 QT_END_NAMESPACE
 
-class MainWindow : public QMainWindow
+class ClientWindow : public QMainWindow
 {
     Q_OBJECT
 
 public:
-    MainWindow(QWidget *parent = nullptr);
-    ~MainWindow();
+    ClientWindow(QWidget *parent = nullptr);
+    ~ClientWindow();
 
 private slots:
     void on_connectButton_clicked();
@@ -25,7 +25,7 @@ public slots:
 private:
     QTcpSocket *socket;
     QByteArray data;
-    Ui::MainWindow *ui;
+    Ui::ClientWindow *ui;
 
     void sendToServer(QString str);
 };
