@@ -18,7 +18,6 @@ void MyServer::incomingConnection(qintptr socketDescriptor){
         sockets.removeOne(socket);
         emit clientDisconnected("Client has been removed!");
     });
-
     sockets.push_back(socket);
     emit newConnection("Client has been connected!");
 }
