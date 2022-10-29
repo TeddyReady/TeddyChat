@@ -41,7 +41,7 @@ void ClientWindow::slotReadyRead(){
 }
 
 void ClientWindow::on_connectAct_triggered() {
-    socket->connectToHost("127.0.0.1", 2075);
+    socket->connectToHost(ip, port);
 }
 void ClientWindow::on_disconnectAct_triggered() {
     socket->disconnectFromHost();
@@ -72,4 +72,36 @@ void ClientWindow::slotSocketDisconnected(){
     ui->disconnectAct->setDisabled(true);
     ui->sendButton->setDisabled(true);
     ui->incomingField->clear();
+}
+
+void ClientWindow::on_ipPortAct_triggered() {
+    DialogIPPort *window = new DialogIPPort(this, ip, port);
+    window->setWindowTitle("Edit Your Ip and Port");
+    window->show();
+    connect(window, SIGNAL(dialogIPPortParams(QString,int)), this, SLOT(slotDialogIPPortParams(QString,int)));
+}
+void ClientWindow::slotDialogIPPortParams(QString ip, int port){
+    this->ip = ip;
+    this->port = port;
+}
+
+void ClientWindow::on_nameAct_triggered() {
+    DialogUserName *window = new DialogUserName(this, username);
+    window->setWindowTitle("Edit Your Name");
+    window->show();
+    connect(window, SIGNAL(dialogUserNameParams(QString)), this, SLOT(slotDialogUserNameParams(QString)));
+}
+void ClientWindow::slotDialogUserNameParams(QString name){
+    username = name;
+}
+
+void ClientWindow::on_statusAct_triggered()
+{
+    DialogStatus *window = new DialogStatus(this, status);
+    window->setWindowTitle("Edit Your Status");
+    window->show();
+    connect(window, SIGNAL(dialogStatusParams(int)), this, SLOT(slotDialogStatusParams(int)));
+}
+void ClientWindow::slotDialogStatusParams(int status){
+    this->status = status;
 }

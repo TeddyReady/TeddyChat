@@ -4,17 +4,17 @@
 #include "myserver.h"
 
 QT_BEGIN_NAMESPACE
-namespace Ui { class MainWindow; }
+namespace Ui { class ServerWindow; }
 QT_END_NAMESPACE
 
-class MainWindow : public QMainWindow {
+class ServerWindow : public QMainWindow {
     Q_OBJECT
 public:
-    MainWindow(QWidget *parent = nullptr);
-    ~MainWindow();
+    ServerWindow(QWidget *parent = nullptr);
+    ~ServerWindow();
 private:
     MyServer *server;
-    Ui::MainWindow *ui;
+    Ui::ServerWindow *ui;
 public slots:
     void slotNewConnection(QString);
     void slotClientDisconnected(QString);

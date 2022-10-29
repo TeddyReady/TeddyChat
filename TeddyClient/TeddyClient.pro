@@ -17,13 +17,22 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 SOURCES += \
     clientwindow.cpp \
+    dialogipport.cpp \
+    dialogstatus.cpp \
+    dialogusername.cpp \
     main.cpp
 
 HEADERS += \
-    clientwindow.h
+    clientwindow.h \
+    dialogipport.h \
+    dialogstatus.h \
+    dialogusername.h
 
 FORMS += \
-    clientwindow.ui
+    clientwindow.ui \
+    dialogipport.ui \
+    dialogstatus.ui \
+    dialogusername.ui
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin

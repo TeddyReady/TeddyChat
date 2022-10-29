@@ -1,29 +1,29 @@
-#include "mainwindow.h"
-#include "ui_mainwindow.h"
+#include "serverwindow.h"
+#include "ui_serverwindow.h"
 
-MainWindow::MainWindow(QWidget *parent)
+ServerWindow::ServerWindow(QWidget *parent)
     : QMainWindow(parent)
-    , ui(new Ui::MainWindow)
+    , ui(new Ui::ServerWindow)
 {
     ui->setupUi(this);
     server = new MyServer;
-    ui->IPLabel->setText("127.0.0.1");
-    ui->portLabel->setText("2075");
+    ui->IPLabel->setText(server->serverAddress().toString());
+    ui->portLabel->setText(QString::number(server->serverPort()));
     ui->chatField->addItem(QTime::currentTime().toString()+" server started at "+server->serverAddress().toString()+":"+QString::number(server->serverPort()));
     connect(server, SIGNAL(newConnection(QString)), this, SLOT(slotNewConnection(QString)));
     connect(server, SIGNAL(clientDisconnected(QString)), this, SLOT(slotClientDisconnected(QString)));
 }
 
-MainWindow::~MainWindow() {
+ServerWindow::~ServerWindow() {
     delete ui;
 }
 
-void MainWindow::slotNewConnection(QString message) {
+void ServerWindow::slotNewConnection(QString message) {
     ui->chatField->addItem(QTime::currentTime().toString()+ " " + message);
     ui->cntUsers->setText(server->getCountOfClients());
 }
 
-void MainWindow::slotClientDisconnected(QString message) {
-    ui->chatField->addItem(message);
+void ServerWindow::slotClientDisconnected(QString message) {
+    ui->chatField->addItem(QTime::currentTime().toString()+ " " +message);
     ui->cntUsers->setText(server->getCountOfClients());
 }
