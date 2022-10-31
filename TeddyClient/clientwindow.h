@@ -1,19 +1,22 @@
 #pragma once
 #include <QMainWindow>
 //#include <QtXml>
-#include <QTcpSocket>
+#include <QSslSocket>
+#include <QTime>
 #include "dialogipport.h"
 #include "dialogusername.h"
-#include "dialogstatus.h"
+#include "dialogaboutautor.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class ClientWindow; }
 QT_END_NAMESPACE
 
+enum Status {Online, NotInPlace, NotDisturb};
+
 class ClientWindow : public QMainWindow {
     Q_OBJECT
 private:
-    QTcpSocket *socket;
+    QSslSocket *socket;
     QByteArray data;
     QString ip = "127.0.0.1";
     int port = 2075;
@@ -22,12 +25,13 @@ private:
     Ui::ClientWindow *ui;
 
     void sendToServer(QString str);
+    void sendToServerDuty(QString str);
 
 public slots:
     void slotReadyRead();
 
 public:
-    ClientWindow(QWidget *parent = nullptr);
+    explicit ClientWindow(QWidget *parent = nullptr);
     ~ClientWindow();
 
 private slots:
@@ -42,8 +46,9 @@ private slots:
     void slotDialogIPPortParams(QString, int);
     void on_nameAct_triggered();
     void slotDialogUserNameParams(QString);
-    void on_statusAct_triggered();
-    void slotDialogStatusParams(int);
+    void on_actionOnline_triggered();
+    void on_actionNotInPlace_triggered();
+    void on_actionDoNotDisturb_triggered();
 
     //UI Fields
     void on_sendButton_clicked();
@@ -52,4 +57,6 @@ private slots:
     //Socket slots
     void slotSocketConnected();
     void slotSocketDisconnected();
+    void on_appAct_triggered();
+
 };

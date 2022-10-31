@@ -10,29 +10,29 @@ MyServer::MyServer()
 }
 
 void MyServer::incomingConnection(qintptr socketDescriptor){
-    socket = new QTcpSocket;
+    socket = new QSslSocket;
     socket->setSocketDescriptor(socketDescriptor);
-    connect(socket, &QTcpSocket::readyRead, this, &MyServer::slotReadyRead);
-    connect(socket, &QTcpSocket::disconnected, socket, [this]()
+    connect(socket, &QSslSocket::readyRead, this, &MyServer::slotReadyRead);
+    connect(socket, &QSslSocket::disconnected, socket, [this]()
     {
         sockets.removeOne(socket);
-        emit clientDisconnected("Client has been removed!");
+        emit clientDisconnected((QString)"Client " + (QString)" has been removed!");
     });
     sockets.push_back(socket);
-    emit newConnection("Client has been connected!");
+    emit newConnection((QString)"Client " + (QString)" has been connected!");
 }
 
 void MyServer::slotReadyRead(){
-   socket = (QTcpSocket*)sender();
+   socket = (QSslSocket*)sender();
    QDataStream in(socket);
    in.setVersion(QDataStream::Qt_5_12);
    if (in.status() == QDataStream::Ok){
-       qDebug() << "Read...";
+       //qDebug() << "Read...";
        QString str;
        in >> str;
        sendToClient(str);
    } else {
-       qDebug() << "Read error!";
+       //qDebug() << "Read error!";
    }
 }
 

@@ -1,6 +1,6 @@
 #pragma once
 #include <QTcpServer>
-#include <QTcpSocket>
+#include <QSslSocket>
 #include <QVector>
 #include <QDebug>
 #include <QDataStream>
@@ -10,17 +10,18 @@
 class MyServer: public QTcpServer {
     Q_OBJECT
 private:
-    QVector<QTcpSocket *> sockets;
+    QVector<QSslSocket *> sockets;
     QByteArray data;
     void sendToClient(QString str);
 public:
     explicit MyServer();
-    QTcpSocket *socket;
+    QSslSocket *socket;
 
     QString getCountOfClients() const {return QString::number(sockets.size());}
 public slots:
     void incomingConnection(qintptr socketDescriptor);
     void slotReadyRead();
+
 signals:
     void newConnection(QString);
     void clientDisconnected(QString);

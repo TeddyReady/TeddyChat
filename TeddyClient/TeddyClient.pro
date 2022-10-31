@@ -17,24 +17,27 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 SOURCES += \
     clientwindow.cpp \
+    dialogaboutautor.cpp \
     dialogipport.cpp \
-    dialogstatus.cpp \
     dialogusername.cpp \
     main.cpp
 
 HEADERS += \
     clientwindow.h \
+    dialogaboutautor.h \
     dialogipport.h \
-    dialogstatus.h \
     dialogusername.h
 
 FORMS += \
     clientwindow.ui \
+    dialogaboutautor.ui \
     dialogipport.ui \
-    dialogstatus.ui \
     dialogusername.ui
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
+
+RESOURCES += \
+    resourses.qrc

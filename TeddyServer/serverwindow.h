@@ -1,5 +1,6 @@
 #pragma once
 #include <QMainWindow>
+#include <QVector>
 #include <QTime>
 #include "myserver.h"
 
