@@ -5,17 +5,20 @@
 #include <QDebug>
 #include <QDataStream>
 #include <QString>
+#include "/home/kataich75/qtprojects/TECH/TeddyClient/myclient.h"
+
+class MyClient;
 
 class MyServer: public QTcpServer {
     Q_OBJECT
 private:
-    QVector<QSslSocket *> clients;
+    QVector<MyClient> clients;
 public:
     explicit MyServer();
     void deployServer();
 
     void sendToClient(QString str);
-    QVector<QSslSocket *> getCurrentClients() const {return clients;}
+    QVector<MyClient> getCurrentClients() const {return clients;}
     QString getCountOfClients() const {return QString::number(clients.size());}
 public slots:
     void incomingConnection(qintptr socketDescriptor);

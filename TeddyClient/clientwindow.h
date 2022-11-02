@@ -5,6 +5,7 @@
 #include <QTime>
 #include <QSettings>
 #include <QSound>
+#include "myclient.h"
 #include "dialogipport.h"
 #include "dialogusername.h"
 #include "dialogaboutautor.h"
@@ -13,21 +14,16 @@ QT_BEGIN_NAMESPACE
 namespace Ui { class ClientWindow; }
 QT_END_NAMESPACE
 
-enum Status {Online, NotInPlace, NotDisturb};
-
 class ClientWindow : public QMainWindow {
     Q_OBJECT
 private:
-    QSslSocket *socket;
-    QString ip;
-    int port;
-    QString username;
-    int status;
+    MyClient client;
 
     QSettings *settings;
     Ui::ClientWindow *ui;
 
-    void sendToServer(QString str);
+    void sendDataToServer();
+    void sendMessageToServer(QString str);
 public:
     explicit ClientWindow(QWidget *parent = nullptr);
     ~ClientWindow();

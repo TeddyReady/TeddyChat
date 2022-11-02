@@ -11,9 +11,9 @@ ClientWindow::ClientWindow(QWidget *parent)
     ui->setupUi(this);
     ui->disconnectAct->setDisabled(true);
     ui->sendButton->setDisabled(true);
-    ui->labelIP->setText(ip);
-    ui->labelPort->setText(QString::number(port));
-    switch(status){
+    ui->labelIP->setText(client.ip);
+    ui->labelPort->setText(QString::number(client.port));
+    switch(client.status){
     case Status::Online:
         ui->labelStatus->setText("Online");
         ui->actionOnline->setChecked(true);
@@ -28,10 +28,11 @@ ClientWindow::ClientWindow(QWidget *parent)
         break;
     }
 
-    socket = new QSslSocket(this);
-    connect(socket, SIGNAL(readyRead()), this, SLOT(slotReadyRead()));
-    connect(socket, SIGNAL(connected()), this, SLOT(slotSocketConnected()));
-    connect(socket, SIGNAL(disconnected()), this, SLOT(slotSocketDisconnected()));
+    QSslSocket *socket = new QSslSocket(this);
+    client.socket = socket;
+    connect(client.socket, SIGNAL(readyRead()), this, SLOT(slotReadyRead()));
+    connect(client.socket, SIGNAL(connected()), this, SLOT(slotSocketConnected()));
+    connect(client.socket, SIGNAL(disconnected()), this, SLOT(slotSocketDisconnected()));
 
 }
 
@@ -42,36 +43,47 @@ ClientWindow::~ClientWindow()
 }
 
 void ClientWindow::uploadSettings(){
-    ip = settings->value("ip", "127.0.0.1").toString();
-    port = settings->value("port", "45678").toInt();
-    username = settings->value("username", "Unknown User").toString();
-    status = settings->value("status", Status::Online).toInt();
+    client.ip = settings->value("ip", "127.0.0.1").toString();
+    client.port = settings->value("port", "45678").toInt();
+    client.username = settings->value("username", "Unknown User").toString();
+    client.status = settings->value("status", Status::Online).toInt();
     setGeometry(settings->value("geometry", QRect(200, 200, 530, 388)).toRect());
 }
 void ClientWindow::saveSettings(){
-    settings->setValue("ip", ip);
-    settings->setValue("port", port);
-    settings->setValue("username", username);
-    settings->setValue("status", status);
+    settings->setValue("ip", client.ip);
+    settings->setValue("port", client.port);
+    settings->setValue("username", client.username);
+    settings->setValue("status", client.status);
     settings->setValue("geometry", geometry());
 }
 
-void ClientWindow::sendToServer(QString str)
+void ClientWindow::sendMessageToServer(QString str)
 {
     QByteArray data; data.clear();
     QDataStream out(&data, QIODevice::WriteOnly);
     out.setVersion(QDataStream::Qt_5_12);
-    out << username << str;
-    socket->write(data);
+    out << (QString)"MSSG" << client.username << str;
+    client.socket->write(data);
+}
+
+void ClientWindow::sendDataToServer()
+{
+    QByteArray data; data.clear();
+    QDataStream out(&data, QIODevice::WriteOnly);
+    out.setVersion(QDataStream::Qt_5_12);
+    out << (QString)"DATA" << client.username << (QString)client.status;
+    client.socket->write(data);
 }
 
 void ClientWindow::slotReadyRead()
 {
     QSound *sound = new QSound("/home/kataich75/qtprojects/TECH/TeddyClient/newmessage.wav");
-    QDataStream in(socket);
+    qDebug() << "point 2";
+    QDataStream in(client.socket);
+    qDebug() << "point 2";
     in.setVersion(QDataStream::Qt_5_12);
     if (in.status() == QDataStream::Ok){
-        if (status != Status::NotDisturb){;
+        if (client.status != Status::NotDisturb){;
             sound->play();
         }
         QString str;
@@ -86,7 +98,8 @@ void ClientWindow::slotReadyRead()
 //Menu "File"
 void ClientWindow::on_connectAct_triggered()
 {
-    socket->connectToHost(ip, port);
+    client.socket->connectToHost(client.ip, client.port);
+    sendDataToServer();
 }
 void ClientWindow::slotSocketConnected()
 {
@@ -98,7 +111,7 @@ void ClientWindow::slotSocketConnected()
 
 void ClientWindow::on_disconnectAct_triggered()
 {
-    socket->disconnectFromHost();
+    client.socket->disconnectFromHost();
 }
 void ClientWindow::slotSocketDisconnected()
 {
@@ -121,29 +134,29 @@ void ClientWindow::on_quitAct_triggered()
 //Menu "Settings"
 void ClientWindow::on_ipPortAct_triggered()
 {
-    DialogIPPort *window = new DialogIPPort(this, ip, port);
+    DialogIPPort *window = new DialogIPPort(this, client.ip, client.port);
     window->setWindowTitle("Edit Your Ip and Port");
     window->show();
     connect(window, SIGNAL(dialogIPPortParams(QString,int)), this, SLOT(slotDialogIPPortParams(QString,int)));
 }
 void ClientWindow::slotDialogIPPortParams(QString ip, int port)
 {
-    this->ip = ip;
-    this->port = port;
+    client.ip = ip;
+    client.port = port;
     ui->labelIP->setText(ip);
     ui->labelPort->setText(QString::number(port));
 }
 
 void ClientWindow::on_nameAct_triggered()
 {
-    DialogUserName *window = new DialogUserName(this, username);
+    DialogUserName *window = new DialogUserName(this, client.username);
     window->setWindowTitle("Edit Your Name");
     window->show();
     connect(window, SIGNAL(dialogUserNameParams(QString)), this, SLOT(slotDialogUserNameParams(QString)));
 }
 void ClientWindow::slotDialogUserNameParams(QString username)
 {
-    this->username = username;
+    client.username = username;
 }
 
 void ClientWindow::on_actionOnline_triggered()
@@ -151,7 +164,7 @@ void ClientWindow::on_actionOnline_triggered()
     if (ui->actionOnline->isChecked()) {
         ui->actionNotInPlace->setChecked(false);
         ui->actionDoNotDisturb->setChecked(false);
-        status = Status::Online;
+        client.status = Status::Online;
         ui->labelStatus->setText("Online");
     }
 }
@@ -160,7 +173,7 @@ void ClientWindow::on_actionNotInPlace_triggered()
     if (ui->actionNotInPlace->isChecked()) {
         ui->actionOnline->setChecked(false);
         ui->actionDoNotDisturb->setChecked(false);
-        status = Status::NotInPlace;
+        client.status = Status::NotInPlace;
         ui->labelStatus->setText("Not In Place");
     }
 }
@@ -169,7 +182,7 @@ void ClientWindow::on_actionDoNotDisturb_triggered()
     if (ui->actionDoNotDisturb->isChecked()) {
         ui->actionOnline->setChecked(false);
         ui->actionNotInPlace->setChecked(false);
-        status = Status::NotDisturb;
+        client.status = Status::NotDisturb;
         ui->labelStatus->setText("Do Not Disturb");
     }
 }
@@ -184,11 +197,11 @@ void ClientWindow::on_appAct_triggered()
 //UI Fields
 void ClientWindow::on_sendButton_clicked()
 {
-    sendToServer(ui->messageField->text());
+    sendMessageToServer(ui->messageField->text());
     ui->messageField->clear();
 }
 void ClientWindow::on_messageField_returnPressed()
 {
-    sendToServer(ui->messageField->text());
+    sendMessageToServer(ui->messageField->text());
     ui->messageField->clear();
 }
