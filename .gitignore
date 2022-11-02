@@ -2,4 +2,5 @@
 *.ui
 *.ini
 *.xml
-*.xml
+*.pro.user
+icon
