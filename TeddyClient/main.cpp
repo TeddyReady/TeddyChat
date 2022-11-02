@@ -4,9 +4,11 @@
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
+    QApplication::setOrganizationName("TeddyCorp");
+    QApplication::setApplicationName("Teddy's Chat");
+
     ClientWindow w;
     w.setWindowTitle("Client");
-    w.resize(300, 500);
     w.show();
     return app.exec();
 }

@@ -5,24 +5,25 @@
 #include <QDebug>
 #include <QDataStream>
 #include <QString>
-#include "/home/kataich75/qtprojects/TECH/TeddyClient/clientwindow.h"
 
 class MyServer: public QTcpServer {
     Q_OBJECT
 private:
-    QVector<QSslSocket *> sockets;
-    QByteArray data;
+    QVector<QSslSocket *> clients;
     void sendToClient(QString str);
 public:
     explicit MyServer();
-    QSslSocket *socket;
+    void deployServer();
 
-    QString getCountOfClients() const {return QString::number(sockets.size());}
+    QVector<QSslSocket *> getCurrentClients() const {return clients;}
+    QString getCountOfClients() const {return QString::number(clients.size());}
 public slots:
     void incomingConnection(qintptr socketDescriptor);
+    void slotClientDisconnected();
     void slotReadyRead();
 
 signals:
+    void serverStarted(bool);
     void newConnection(QString);
     void clientDisconnected(QString);
 };

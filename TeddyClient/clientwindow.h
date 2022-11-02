@@ -3,6 +3,8 @@
 //#include <QtXml>
 #include <QSslSocket>
 #include <QTime>
+#include <QSettings>
+#include <QSound>
 #include "dialogipport.h"
 #include "dialogusername.h"
 #include "dialogaboutautor.h"
@@ -17,22 +19,25 @@ class ClientWindow : public QMainWindow {
     Q_OBJECT
 private:
     QSslSocket *socket;
-    QByteArray data;
-    QString ip = "127.0.0.1";
-    int port = 2075;
-    QString username = "Unknown User";
-    int status = Status::Online;
+    QString ip;
+    int port;
+    QString username;
+    int status;
+
+    QSettings *settings;
     Ui::ClientWindow *ui;
 
     void sendToServer(QString str);
-    void sendToServerDuty(QString str);
-
-public slots:
-    void slotReadyRead();
-
 public:
     explicit ClientWindow(QWidget *parent = nullptr);
     ~ClientWindow();
+
+    //Для сохранения и установки настроек в/из ini файл(а)
+    void uploadSettings();
+    void saveSettings();
+
+public slots:
+    void slotReadyRead();
 
 private slots:
     //Menu "File"

@@ -1,47 +1,50 @@
 #include "myserver.h"
 
-MyServer::MyServer()
-{
-    if (this->listen(QHostAddress::LocalHost, 2075)) {
-        qDebug() << "Server started...";
+MyServer::MyServer() {}
+
+void MyServer::deployServer(){
+    if (this->listen(QHostAddress::LocalHost, 45678)) {
+        emit serverStarted(true);
     } else {
-        qDebug() << "Fatal error! Server cannot start";
+        emit serverStarted(false);
     }
 }
 
 void MyServer::incomingConnection(qintptr socketDescriptor){
-    socket = new QSslSocket;
+    QSslSocket *socket = new QSslSocket(this);
     socket->setSocketDescriptor(socketDescriptor);
-    connect(socket, &QSslSocket::readyRead, this, &MyServer::slotReadyRead);
-    connect(socket, &QSslSocket::disconnected, socket, [this]()
-    {
-        sockets.removeOne(socket);
-        emit clientDisconnected((QString)"Client " + (QString)" has been removed!");
-    });
-    sockets.push_back(socket);
-    emit newConnection((QString)"Client " + (QString)" has been connected!");
+    connect(socket, SIGNAL(readyRead()), this, SLOT(slotReadyRead()));
+    connect(socket, SIGNAL(disconnected()), this, SLOT(slotClientDisconnected()));
+    clients.push_back(socket);
+    emit newConnection("");
+}
+
+void MyServer::slotClientDisconnected(){
+    QSslSocket *socket = (QSslSocket*)sender();
+    clients.removeOne(socket);
+    emit clientDisconnected("");
 }
 
 void MyServer::slotReadyRead(){
-   socket = (QSslSocket*)sender();
-   QDataStream in(socket);
-   in.setVersion(QDataStream::Qt_5_12);
-   if (in.status() == QDataStream::Ok){
-       //qDebug() << "Read...";
-       QString str;
-       in >> str;
-       sendToClient(str);
-   } else {
+    QSslSocket *socket = (QSslSocket*)sender();
+    QString username, message;
+    QDataStream in(socket);
+    in.setVersion(QDataStream::Qt_5_12);
+    if (in.status() == QDataStream::Ok){
+        in >> username >> message;
+        sendToClient(username + ": " + message);
+    } else {
        //qDebug() << "Read error!";
-   }
+    }
 }
 
 void MyServer::sendToClient(QString str){
+    QByteArray data;
     data.clear();
     QDataStream out(&data, QIODevice::WriteOnly);
     out.setVersion(QDataStream::Qt_5_12);
     out << str;
-    for (int i = 0; i < sockets.size(); i++){
-        sockets[i]->write(data);
+    for (int i = 0; i < clients.size(); i++){
+        clients[i]->write(data);
     }
 }

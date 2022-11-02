@@ -5,48 +5,75 @@ ClientWindow::ClientWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::ClientWindow)
 {
+    settings = new QSettings("/home/kataich75/qtprojects/TECH/TeddyClient/settings.ini", QSettings::IniFormat, this);
+    uploadSettings();
+
     ui->setupUi(this);
     ui->disconnectAct->setDisabled(true);
     ui->sendButton->setDisabled(true);
-    ui->actionOnline->setChecked(true);
     ui->labelIP->setText(ip);
     ui->labelPort->setText(QString::number(port));
-    ui->labelStatus->setText("Online");
+    switch(status){
+    case Status::Online:
+        ui->labelStatus->setText("Online");
+        ui->actionOnline->setChecked(true);
+        break;
+    case Status::NotInPlace:
+        ui->labelStatus->setText("Not In Place");
+        ui->actionNotInPlace->setChecked(true);
+        break;
+    case Status::NotDisturb:
+        ui->labelStatus->setText("Do Not Disturb");
+        ui->actionDoNotDisturb->setChecked(true);
+        break;
+    }
 
     socket = new QSslSocket(this);
     connect(socket, SIGNAL(readyRead()), this, SLOT(slotReadyRead()));
     connect(socket, SIGNAL(connected()), this, SLOT(slotSocketConnected()));
     connect(socket, SIGNAL(disconnected()), this, SLOT(slotSocketDisconnected()));
+
 }
 
 ClientWindow::~ClientWindow()
 {
+    saveSettings();
     delete ui;
+}
+
+void ClientWindow::uploadSettings(){
+    ip = settings->value("ip", "127.0.0.1").toString();
+    port = settings->value("port", "45678").toInt();
+    username = settings->value("username", "Unknown User").toString();
+    status = settings->value("status", Status::Online).toInt();
+    setGeometry(settings->value("geometry", QRect(200, 200, 530, 388)).toRect());
+}
+void ClientWindow::saveSettings(){
+    settings->setValue("ip", ip);
+    settings->setValue("port", port);
+    settings->setValue("username", username);
+    settings->setValue("status", status);
+    settings->setValue("geometry", geometry());
 }
 
 void ClientWindow::sendToServer(QString str)
 {
-    str = QTime::currentTime().toString() + " " + username + ": " + str;
-    data.clear();
+    QByteArray data; data.clear();
     QDataStream out(&data, QIODevice::WriteOnly);
     out.setVersion(QDataStream::Qt_5_12);
-    out << str;
-    socket->write(data);
-}
-void ClientWindow::sendToServerDuty(QString str)
-{
-    data.clear();
-    QDataStream out(&data, QIODevice::WriteOnly);
-    out.setVersion(QDataStream::Qt_5_12);
-    out << str;
+    out << username << str;
     socket->write(data);
 }
 
 void ClientWindow::slotReadyRead()
 {
+    QSound *sound = new QSound("/home/kataich75/qtprojects/TECH/TeddyClient/newmessage.wav");
     QDataStream in(socket);
     in.setVersion(QDataStream::Qt_5_12);
     if (in.status() == QDataStream::Ok){
+        if (status != Status::NotDisturb){;
+            sound->play();
+        }
         QString str;
         in >> str;
         ui->incomingField->setTextColor(Qt::blue);
@@ -60,7 +87,6 @@ void ClientWindow::slotReadyRead()
 void ClientWindow::on_connectAct_triggered()
 {
     socket->connectToHost(ip, port);
-    this->sendToServerDuty(username);
 }
 void ClientWindow::slotSocketConnected()
 {
@@ -115,9 +141,9 @@ void ClientWindow::on_nameAct_triggered()
     window->show();
     connect(window, SIGNAL(dialogUserNameParams(QString)), this, SLOT(slotDialogUserNameParams(QString)));
 }
-void ClientWindow::slotDialogUserNameParams(QString name)
+void ClientWindow::slotDialogUserNameParams(QString username)
 {
-    username = name;
+    this->username = username;
 }
 
 void ClientWindow::on_actionOnline_triggered()

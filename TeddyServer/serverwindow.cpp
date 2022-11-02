@@ -7,23 +7,33 @@ ServerWindow::ServerWindow(QWidget *parent)
 {
     ui->setupUi(this);
     server = new MyServer;
-    ui->IPLabel->setText(server->serverAddress().toString());
-    ui->portLabel->setText(QString::number(server->serverPort()));
-    ui->chatField->addItem(QTime::currentTime().toString()+" server started at "+server->serverAddress().toString()+":"+QString::number(server->serverPort()));
+    connect(server, SIGNAL(serverStarted(bool)), this, SLOT(slotServerStatus(bool)));
     connect(server, SIGNAL(newConnection(QString)), this, SLOT(slotNewConnection(QString)));
     connect(server, SIGNAL(clientDisconnected(QString)), this, SLOT(slotClientDisconnected(QString)));
+    server->deployServer();
+
+    ui->IPLabel->setText(server->serverAddress().toString());
+    ui->portLabel->setText(QString::number(server->serverPort()));
 }
 
 ServerWindow::~ServerWindow() {
     delete ui;
 }
 
-void ServerWindow::slotNewConnection(QString message) {
-    ui->chatField->addItem(QTime::currentTime().toString()+ " " + message);
+void ServerWindow::slotServerStatus(bool online){
+    if (online) {
+        ui->chatField->addItem(QTime::currentTime().toString() + " Server has been deployed!");
+    } else {
+        ui->chatField->addItem(QTime::currentTime().toString() + " Fatal Error! Server cannot be deployed");
+    }
+}
+
+void ServerWindow::slotNewConnection(QString username) {
+    ui->chatField->addItem(QTime::currentTime().toString() + " " + username + " join the chat.");
     ui->cntUsers->setText(server->getCountOfClients());
 }
 
-void ServerWindow::slotClientDisconnected(QString message) {
-    ui->chatField->addItem(QTime::currentTime().toString()+ " " +message);
+void ServerWindow::slotClientDisconnected(QString username) {
+    ui->chatField->addItem(QTime::currentTime().toString() + " " + username + " left the chat.");
     ui->cntUsers->setText(server->getCountOfClients());
 }

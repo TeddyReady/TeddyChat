@@ -10,15 +10,12 @@ class DialogUserName : public QDialog {
 private:
     QString name;
     Ui::DialogUserName *ui;
-
 public:
     explicit DialogUserName(QWidget *parent = nullptr, QString name = "Unknown User");
     ~DialogUserName();
-
 private slots:
     void on_buttonBox_accepted();
     void on_buttonBox_rejected();
-
 signals:
     void dialogUserNameParams(QString);
 };
