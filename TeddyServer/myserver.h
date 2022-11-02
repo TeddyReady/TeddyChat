@@ -10,11 +10,11 @@ class MyServer: public QTcpServer {
     Q_OBJECT
 private:
     QVector<QSslSocket *> clients;
-    void sendToClient(QString str);
 public:
     explicit MyServer();
     void deployServer();
 
+    void sendToClient(QString str);
     QVector<QSslSocket *> getCurrentClients() const {return clients;}
     QString getCountOfClients() const {return QString::number(clients.size());}
 public slots:

@@ -16,13 +16,13 @@ void MyServer::incomingConnection(qintptr socketDescriptor){
     connect(socket, SIGNAL(readyRead()), this, SLOT(slotReadyRead()));
     connect(socket, SIGNAL(disconnected()), this, SLOT(slotClientDisconnected()));
     clients.push_back(socket);
-    emit newConnection("");
+    emit newConnection("New User");
 }
 
 void MyServer::slotClientDisconnected(){
     QSslSocket *socket = (QSslSocket*)sender();
     clients.removeOne(socket);
-    emit clientDisconnected("");
+    emit clientDisconnected("New User");
 }
 
 void MyServer::slotReadyRead(){

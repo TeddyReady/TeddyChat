@@ -29,11 +29,13 @@ void ServerWindow::slotServerStatus(bool online){
 }
 
 void ServerWindow::slotNewConnection(QString username) {
-    ui->chatField->addItem(QTime::currentTime().toString() + " " + username + " join the chat.");
+    ui->chatField->addItem(QTime::currentTime().toString() + " Client has been connected");
     ui->cntUsers->setText(server->getCountOfClients());
+    server->sendToClient("Hello, " + username + ", have a nice day :)");
 }
 
 void ServerWindow::slotClientDisconnected(QString username) {
-    ui->chatField->addItem(QTime::currentTime().toString() + " " + username + " left the chat.");
+    ui->chatField->addItem(QTime::currentTime().toString() + " Client has been disconnected");
     ui->cntUsers->setText(server->getCountOfClients());
+    server->sendToClient(username + " left current session.");
 }
