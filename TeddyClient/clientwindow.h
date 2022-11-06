@@ -5,6 +5,7 @@
 #include <QTime>
 #include <QSettings>
 #include <QSound>
+#include <QVector>
 #include "myclient.h"
 #include "dialogipport.h"
 #include "dialogusername.h"
@@ -18,6 +19,8 @@ class ClientWindow : public QMainWindow {
     Q_OBJECT
 private:
     MyClient client;
+    quint16 dataSize;
+    QVector<MyClient> includedClients;
 
     QSettings *settings;
     Ui::ClientWindow *ui;

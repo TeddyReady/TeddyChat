@@ -8,8 +8,8 @@ ServerWindow::ServerWindow(QWidget *parent)
     ui->setupUi(this);
     server = new MyServer;
     connect(server, SIGNAL(serverStarted(bool)), this, SLOT(slotServerStatus(bool)));
-    connect(server, SIGNAL(newConnection(QString)), this, SLOT(slotNewConnection(QString)));
-    connect(server, SIGNAL(clientDisconnected(QString)), this, SLOT(slotClientDisconnected(QString)));
+    connect(server, SIGNAL(newConnection(MyClient)), this, SLOT(slotNewConnection(MyClient)));
+    connect(server, SIGNAL(clientDisconnected(MyClient)), this, SLOT(slotClientDisconnected(MyClient)));
     server->deployServer();
 
     ui->IPLabel->setText(server->serverAddress().toString());
@@ -22,20 +22,33 @@ ServerWindow::~ServerWindow() {
 
 void ServerWindow::slotServerStatus(bool online){
     if (online) {
-        ui->chatField->addItem(QTime::currentTime().toString() + " Server has been deployed!");
+        ui->chatField->setTextColor(Qt::darkGreen);
+        ui->chatField->append(QTime::currentTime().toString() + " Server has been deployed!");
     } else {
-        ui->chatField->addItem(QTime::currentTime().toString() + " Fatal Error! Server cannot be deployed");
+        ui->chatField->setTextColor(Qt::darkRed);
+        ui->chatField->append(QTime::currentTime().toString() + " Fatal Error! Server cannot be deployed");
     }
 }
 
-void ServerWindow::slotNewConnection(QString username) {
-    ui->chatField->addItem(QTime::currentTime().toString() + " " + username + " has been connected");
-    ui->cntUsers->setText(server->getCountOfClients());
-    server->sendToClient("Server: Hello, " + username + ", have a nice day :)");
+void ServerWindow::slotNewConnection(MyClient client) {
+    ui->chatField->setTextColor(Qt::green);
+    ui->chatField->append(QTime::currentTime().toString() + " " + client.username + " has been connected");
+    ui->cntUsers->setText(QString::number(server->clients.size()));
+    ui->clientList->addItem(client.username);
+    server->updateDataInfo("ADD", client, "Server: " + client.username + " join chat channel.");
 }
 
-void ServerWindow::slotClientDisconnected(QString username) {
-    ui->chatField->addItem(QTime::currentTime().toString() + " " + username + " has been disconnected");
-    ui->cntUsers->setText(server->getCountOfClients());
-    server->sendToClient("Server: " + username + " left current session.");
+void ServerWindow::slotClientDisconnected(MyClient client) {
+    ui->chatField->setTextColor(Qt::red);
+    ui->chatField->append(QTime::currentTime().toString() + " " + client.username + " has been disconnected");
+    ui->cntUsers->setText(QString::number(server->clients.size() - 1));
+    //Removing client from UI
+    for(int i = 0; i < server->clients.size(); i++){
+        if(client.username == ui->clientList->item(i)->text()){
+            QListWidgetItem *it = ui->clientList->takeItem(i);
+            delete it;
+            break;
+        }
+    }
+    server->updateDataInfo("REMOVE", client, "Server: " + client.username + " left current session.");
 }

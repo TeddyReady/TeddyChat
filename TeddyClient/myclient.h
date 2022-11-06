@@ -18,16 +18,26 @@ public:
         this->socket = socket;
     }
 
-    ~MyClient(){
+    ~MyClient()
+    {
        ip.clear();
        username.clear();
     }
 
-    bool operator==(const MyClient &client){
+    bool operator==(const MyClient &client)
+    {
         if(socket->socketDescriptor() == client.socket->socketDescriptor()){
             return true;
         } else {
             return false;
+        }
+    }
+    bool operator!=(const MyClient &client)
+    {
+        if(*this == client){
+           return false;
+        } else {
+            return true;
         }
     }
 };

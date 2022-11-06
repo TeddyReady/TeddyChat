@@ -11,15 +11,15 @@ class MyClient;
 
 class MyServer: public QTcpServer {
     Q_OBJECT
-private:
-    QVector<MyClient> clients;
 public:
+    QVector<MyClient> clients;
+    quint16 dataSize = 0;
+
     explicit MyServer();
     void deployServer();
 
     void sendToClient(QString str);
-    QVector<MyClient> getCurrentClients() const {return clients;}
-    QString getCountOfClients() const {return QString::number(clients.size());}
+    void updateDataInfo(QString mode, MyClient newClient, QString serverMsg);
 public slots:
     void incomingConnection(qintptr socketDescriptor);
     void slotClientDisconnected();
@@ -27,6 +27,6 @@ public slots:
 
 signals:
     void serverStarted(bool);
-    void newConnection(QString);
-    void clientDisconnected(QString);
+    void newConnection(MyClient);
+    void clientDisconnected(MyClient);
 };

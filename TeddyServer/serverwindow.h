@@ -18,6 +18,6 @@ private:
     Ui::ServerWindow *ui;
 public slots:
     void slotServerStatus(bool online);
-    void slotNewConnection(QString username);
-    void slotClientDisconnected(QString username);
+    void slotNewConnection(MyClient client);
+    void slotClientDisconnected(MyClient client);
 };

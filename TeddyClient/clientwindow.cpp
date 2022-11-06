@@ -62,7 +62,9 @@ void ClientWindow::sendMessageToServer(QString str)
     QByteArray data; data.clear();
     QDataStream out(&data, QIODevice::WriteOnly);
     out.setVersion(QDataStream::Qt_5_12);
-    out << (QString)"MSSG" << client.username << str;
+    out << (quint16)0 << (QString)"MESSAGE" << client.username << str;
+    out.device()->seek(0);
+    out << (quint16)(data.size() - sizeof(quint16));
     client.socket->write(data);
 }
 
@@ -71,27 +73,66 @@ void ClientWindow::sendDataToServer()
     QByteArray data; data.clear();
     QDataStream out(&data, QIODevice::WriteOnly);
     out.setVersion(QDataStream::Qt_5_12);
-    out << (QString)"DATA" << client.username << (QString)client.status;
+    out << (quint16)0 << (QString)"DATA" << client.username << (QString)client.status;
+    out.device()->seek(0);
+    out << (quint16)(data.size() - sizeof(quint16));
     client.socket->write(data);
 }
 
 void ClientWindow::slotReadyRead()
 {
-    QSound *sound = new QSound("/home/kataich75/qtprojects/TECH/TeddyClient/newmessage.wav");
-    qDebug() << "point 2";
     QDataStream in(client.socket);
-    qDebug() << "point 2";
-    in.setVersion(QDataStream::Qt_5_12);
-    if (in.status() == QDataStream::Ok){
-        if (client.status != Status::NotDisturb){;
-            sound->play();
+    if (dataSize == 0) {
+        if (client.socket->bytesAvailable() < (int)sizeof(quint16)){
+            return;
+        }
+        in >> dataSize;
+        qDebug() << "dataSize now " << dataSize;
+    }
+    if (client.socket->bytesAvailable() < dataSize){
+        return;
+    } else {
+        dataSize = 0;
+    }
+    QString keyword;
+    in >> keyword;
+    qDebug() << keyword;
+
+    if(keyword == "MESSAGE") {
+        if (client.status != Status::NotDisturb){
+            QSound::play("/home/kataich75/qtprojects/TECH/TeddyClient/newmessage.wav");
         }
         QString str;
         in >> str;
+        qDebug() << str;
         ui->incomingField->setTextColor(Qt::blue);
         ui->incomingField->append(str);
-    } else {
-        ui->incomingField->append("Read Error!");
+
+    } else if(keyword == "NEWCLIENT") {
+        QString str, name, status;
+        in >> str >> name >> status;
+        qDebug() << str << name << status;
+        ui->incomingField->setTextColor(Qt::darkGreen);
+        ui->incomingField->append(str);
+        MyClient newClient("127.0.0.1", 45678, name, status.toInt());
+        includedClients.push_back(newClient);
+        ui->clientList->addItem(newClient.username);
+
+    } else if(keyword == "DATA") {
+        QString str, cnt;
+        in >> str >> cnt;
+        qDebug() << str << cnt;
+        ui->incomingField->setTextColor(Qt::green);
+        ui->incomingField->append(str);
+        for (int i = 0; i < cnt.toInt(); i++){
+            qDebug() << "YEEES";
+            QString name, status;
+            in >> name >> status;
+            qDebug() << name << status;
+            MyClient newClient("127.0.0.1", 45678, name, status.toInt());
+            includedClients.push_back(newClient);
+            ui->clientList->addItem(newClient.username);
+        }
     }
 }
 
@@ -100,6 +141,7 @@ void ClientWindow::on_connectAct_triggered()
 {
     client.socket->connectToHost(client.ip, client.port);
     sendDataToServer();
+    dataSize = 0;
 }
 void ClientWindow::slotSocketConnected()
 {
