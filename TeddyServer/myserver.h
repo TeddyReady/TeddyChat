@@ -5,28 +5,30 @@
 #include <QDebug>
 #include <QDataStream>
 #include <QString>
-#include "/home/kataich75/qtprojects/TECH/TeddyClient/myclient.h"
+#include "../myclient.h"
 
 class MyClient;
 
 class MyServer: public QTcpServer {
     Q_OBJECT
+private:
+    QString ip;
+    int port;
 public:
-    QVector<MyClient> clients;
+    QVector<MyClient *> clients;
+    QSslSocket *socket;
     quint16 dataSize = 0;
 
     explicit MyServer();
     void deployServer();
 
-    void sendToClient(QString str);
-    void updateDataInfo(QString mode, MyClient newClient, QString serverMsg);
+    void sendToClient(int command, QString receiver = "", QString message = "");
 public slots:
     void incomingConnection(qintptr socketDescriptor);
-    void slotClientDisconnected();
     void slotReadyRead();
 
 signals:
     void serverStarted(bool);
-    void newConnection(MyClient);
-    void clientDisconnected(MyClient);
+    void newConnection(MyClient *);
+    void clientDisconnected(MyClient *);
 };

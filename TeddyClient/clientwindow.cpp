@@ -5,7 +5,7 @@ ClientWindow::ClientWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::ClientWindow)
 {
-    settings = new QSettings("/home/kataich75/qtprojects/TECH/TeddyClient/settings.ini", QSettings::IniFormat, this);
+    settings = new QSettings("../settings.ini", QSettings::IniFormat, this);
     uploadSettings();
 
     ui->setupUi(this);
@@ -28,17 +28,16 @@ ClientWindow::ClientWindow(QWidget *parent)
         break;
     }
 
-    QSslSocket *socket = new QSslSocket(this);
-    client.socket = socket;
+    client.socket = new QSslSocket(this);
     connect(client.socket, SIGNAL(readyRead()), this, SLOT(slotReadyRead()));
     connect(client.socket, SIGNAL(connected()), this, SLOT(slotSocketConnected()));
     connect(client.socket, SIGNAL(disconnected()), this, SLOT(slotSocketDisconnected()));
-
 }
 
 ClientWindow::~ClientWindow()
 {
     saveSettings();
+    delete settings;
     delete ui;
 }
 
@@ -57,23 +56,20 @@ void ClientWindow::saveSettings(){
     settings->setValue("geometry", geometry());
 }
 
-void ClientWindow::sendMessageToServer(QString str)
+void ClientWindow::sendToServer(int command, QString message)
 {
     QByteArray data; data.clear();
     QDataStream out(&data, QIODevice::WriteOnly);
     out.setVersion(QDataStream::Qt_5_12);
-    out << (quint16)0 << (QString)"MESSAGE" << client.username << str;
-    out.device()->seek(0);
-    out << (quint16)(data.size() - sizeof(quint16));
-    client.socket->write(data);
-}
-
-void ClientWindow::sendDataToServer()
-{
-    QByteArray data; data.clear();
-    QDataStream out(&data, QIODevice::WriteOnly);
-    out.setVersion(QDataStream::Qt_5_12);
-    out << (quint16)0 << (QString)"DATA" << client.username << (QString)client.status;
+    out << (quint16)0 << (quint8)command;
+    if(command == Commands::SendMessage) {
+        out << client.username << message;
+    } else if (command == Commands::Authentication) {
+        out << client.ip << QString::number(client.port)
+            << client.username << QString::number(client.status);
+    } else if (command == Commands::Exit) {
+        out << client.username;
+    }
     out.device()->seek(0);
     out << (quint16)(data.size() - sizeof(quint16));
     client.socket->write(data);
@@ -81,66 +77,54 @@ void ClientWindow::sendDataToServer()
 
 void ClientWindow::slotReadyRead()
 {
+    //PACKET_DEFENCER
     QDataStream in(client.socket);
     if (dataSize == 0) {
-        if (client.socket->bytesAvailable() < (int)sizeof(quint16)){
-            return;
-        }
+        if (client.socket->bytesAvailable() < (int)sizeof(quint16)) return;
         in >> dataSize;
-        qDebug() << "dataSize now " << dataSize;
     }
-    if (client.socket->bytesAvailable() < dataSize){
+    if (client.socket->bytesAvailable() < dataSize)
         return;
-    } else {
-        dataSize = 0;
-    }
-    QString keyword;
-    in >> keyword;
-    qDebug() << keyword;
+    else dataSize = 0;
+    //END
+    quint8 command;
+    in >> command;
 
-    if(keyword == "MESSAGE") {
-        if (client.status != Status::NotDisturb){
-            QSound::play("/home/kataich75/qtprojects/TECH/TeddyClient/newmessage.wav");
+    if((int)command == Commands::SendMessage) {
+        QString name, message;
+        in >> name >> message;
+        if(name == client.username) {
+            ui->incomingField->setTextColor(Qt::black);
+            ui->incomingField->append("You" + message);
+        } else {
+            if (client.status != Status::NotDisturb){
+                QSound::play("/home/kataich75/qtprojects/TECH/TeddyClient/newmessage.wav");
+            }
+            ui->incomingField->setTextColor(Qt::blue);
+            ui->incomingField->append(name + message);
         }
-        QString str;
-        in >> str;
-        qDebug() << str;
-        ui->incomingField->setTextColor(Qt::blue);
-        ui->incomingField->append(str);
 
-    } else if(keyword == "NEWCLIENT") {
-        QString str, name, status;
-        in >> str >> name >> status;
-        qDebug() << str << name << status;
-        ui->incomingField->setTextColor(Qt::darkGreen);
-        ui->incomingField->append(str);
-        MyClient newClient("127.0.0.1", 45678, name, status.toInt());
-        includedClients.push_back(newClient);
-        ui->clientList->addItem(newClient.username);
-
-    } else if(keyword == "DATA") {
-        QString str, cnt;
-        in >> str >> cnt;
-        qDebug() << str << cnt;
-        ui->incomingField->setTextColor(Qt::green);
-        ui->incomingField->append(str);
-        for (int i = 0; i < cnt.toInt(); i++){
-            qDebug() << "YEEES";
-            QString name, status;
-            in >> name >> status;
-            qDebug() << name << status;
-            MyClient newClient("127.0.0.1", 45678, name, status.toInt());
-            includedClients.push_back(newClient);
-            ui->clientList->addItem(newClient.username);
+    } else if ((int)command == Commands::Authentication) {
+        QString name, message;
+        in >> name >> message;
+        if(name == client.username) ui->incomingField->setTextColor(Qt::darkGreen);
+        else ui->incomingField->setTextColor(Qt::green);
+        ui->incomingField->append(message);
+    } else if ((int)command == Commands::Exit) {
+        QString name, message;
+        in >> name >> message;
+        if(name != client.username){
+            ui->incomingField->setTextColor(Qt::darkRed);
+            ui->incomingField->append(message);
         }
     }
 }
 
-//Menu "File"
+//Меню "File"
 void ClientWindow::on_connectAct_triggered()
 {
     client.socket->connectToHost(client.ip, client.port);
-    sendDataToServer();
+    sendToServer(Commands::Authentication);
     dataSize = 0;
 }
 void ClientWindow::slotSocketConnected()
@@ -153,6 +137,7 @@ void ClientWindow::slotSocketConnected()
 
 void ClientWindow::on_disconnectAct_triggered()
 {
+    sendToServer(Commands::Exit);
     client.socket->disconnectFromHost();
 }
 void ClientWindow::slotSocketDisconnected()
@@ -162,18 +147,16 @@ void ClientWindow::slotSocketDisconnected()
     ui->sendButton->setDisabled(true);
     ui->incomingField->clear();
     ui->ipPortAct->setEnabled(true);
+    ui->clientList->clear();
 }
 
-void ClientWindow::on_saveHistoryAct_triggered()
-{
-
-}
+void ClientWindow::on_saveHistoryAct_triggered(){}
 void ClientWindow::on_quitAct_triggered()
 {
     qApp->exit();
 }
 
-//Menu "Settings"
+//Меню "Settings"
 void ClientWindow::on_ipPortAct_triggered()
 {
     DialogIPPort *window = new DialogIPPort(this, client.ip, client.port);
@@ -228,7 +211,7 @@ void ClientWindow::on_actionDoNotDisturb_triggered()
         ui->labelStatus->setText("Do Not Disturb");
     }
 }
-//Menu "Help"
+//Меню "Help"
 void ClientWindow::on_appAct_triggered()
 {
     DialogAboutAutor *window = new DialogAboutAutor(this);
@@ -236,14 +219,14 @@ void ClientWindow::on_appAct_triggered()
     window->show();
 }
 
-//UI Fields
+//Отправка СМС
 void ClientWindow::on_sendButton_clicked()
 {
-    sendMessageToServer(ui->messageField->text());
+    sendToServer(Commands::SendMessage, ui->messageField->text());
     ui->messageField->clear();
 }
 void ClientWindow::on_messageField_returnPressed()
 {
-    sendMessageToServer(ui->messageField->text());
+    sendToServer(Commands::SendMessage, ui->messageField->text());
     ui->messageField->clear();
 }

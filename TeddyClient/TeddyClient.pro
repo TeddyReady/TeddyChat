@@ -26,8 +26,7 @@ HEADERS += \
     clientwindow.h \
     dialogaboutautor.h \
     dialogipport.h \
-    dialogusername.h \
-    myclient.h
+    dialogusername.h
 
 FORMS += \
     clientwindow.ui \

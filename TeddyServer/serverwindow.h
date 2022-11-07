@@ -18,6 +18,6 @@ private:
     Ui::ServerWindow *ui;
 public slots:
     void slotServerStatus(bool online);
-    void slotNewConnection(MyClient client);
-    void slotClientDisconnected(MyClient client);
+    void slotNewConnection(MyClient *client);
+    void slotClientDisconnected(MyClient *client);
 };

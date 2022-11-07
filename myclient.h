@@ -1,8 +1,12 @@
 #pragma once
 #include <QString>
-#include "/home/kataich75/qtprojects/TECH/TeddyServer/myserver.h"
+#include <QSslSocket>
 
 enum Status {Online, NotInPlace, NotDisturb};
+enum Commands{
+    SendMessage, Authentication,
+    Exit
+};
 
 class MyClient {
 public:
@@ -20,13 +24,12 @@ public:
 
     ~MyClient()
     {
-       ip.clear();
-       username.clear();
+        delete socket;
     }
 
     bool operator==(const MyClient &client)
     {
-        if(socket->socketDescriptor() == client.socket->socketDescriptor()){
+        if(username == client.username){
             return true;
         } else {
             return false;

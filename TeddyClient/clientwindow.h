@@ -6,7 +6,7 @@
 #include <QSettings>
 #include <QSound>
 #include <QVector>
-#include "myclient.h"
+#include "../myclient.h"
 #include "dialogipport.h"
 #include "dialogusername.h"
 #include "dialogaboutautor.h"
@@ -20,13 +20,12 @@ class ClientWindow : public QMainWindow {
 private:
     MyClient client;
     quint16 dataSize;
-    QVector<MyClient> includedClients;
+    QVector<MyClient *> includedClients;
 
     QSettings *settings;
     Ui::ClientWindow *ui;
 
-    void sendDataToServer();
-    void sendMessageToServer(QString str);
+    void sendToServer(int command, QString message = "");
 public:
     explicit ClientWindow(QWidget *parent = nullptr);
     ~ClientWindow();
@@ -39,13 +38,13 @@ public slots:
     void slotReadyRead();
 
 private slots:
-    //Menu "File"
+    //Меню "File"
     void on_connectAct_triggered();
     void on_disconnectAct_triggered();
     void on_saveHistoryAct_triggered();
     void on_quitAct_triggered();
 
-    //Menu "Settings"
+    //Меню "Settings"
     void on_ipPortAct_triggered();
     void slotDialogIPPortParams(QString, int);
     void on_nameAct_triggered();
@@ -54,11 +53,11 @@ private slots:
     void on_actionNotInPlace_triggered();
     void on_actionDoNotDisturb_triggered();
 
-    //UI Fields
+    //Отправка СМС
     void on_sendButton_clicked();
     void on_messageField_returnPressed();
 
-    //Socket slots
+    //Слоты сокета
     void slotSocketConnected();
     void slotSocketDisconnected();
     void on_appAct_triggered();
