@@ -5,7 +5,7 @@ int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
     ServerWindow w;
-    w.setWindowTitle("Server");
+    w.setWindowTitle("TeddyServer");
     w.resize(400, 600);
     w.show();
     return app.exec();

@@ -8,7 +8,6 @@ int main(int argc, char *argv[])
     QApplication::setApplicationName("Teddy's Chat");
 
     ClientWindow w;
-    w.setWindowTitle("Client");
     w.show();
     return app.exec();
 }

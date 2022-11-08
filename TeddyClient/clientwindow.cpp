@@ -32,6 +32,7 @@ ClientWindow::ClientWindow(QWidget *parent)
     connect(client.socket, SIGNAL(readyRead()), this, SLOT(slotReadyRead()));
     connect(client.socket, SIGNAL(connected()), this, SLOT(slotSocketConnected()));
     connect(client.socket, SIGNAL(disconnected()), this, SLOT(slotSocketDisconnected()));
+    setWindowTitle(client.username);
 }
 
 ClientWindow::~ClientWindow()
@@ -69,7 +70,7 @@ void ClientWindow::sendToServer(int command, QString message)
             << client.username << QString::number(client.status);
     } else if (command == Commands::Exit) {
         out << client.username;
-    }
+    } else if (command == Commands::UpdateDataBase) {}
     out.device()->seek(0);
     out << (quint16)(data.size() - sizeof(quint16));
     client.socket->write(data);
@@ -89,7 +90,7 @@ void ClientWindow::slotReadyRead()
     //END
     quint8 command;
     in >> command;
-
+    qDebug() << command;
     if((int)command == Commands::SendMessage) {
         QString name, message;
         in >> name >> message;
@@ -107,16 +108,46 @@ void ClientWindow::slotReadyRead()
     } else if ((int)command == Commands::Authentication) {
         QString name, message;
         in >> name >> message;
-        if(name == client.username) ui->incomingField->setTextColor(Qt::darkGreen);
-        else ui->incomingField->setTextColor(Qt::green);
-        ui->incomingField->append(message);
+        if(name == client.username) {
+            ui->incomingField->setTextColor(Qt::darkGreen);
+            ui->incomingField->append(message);
+            sendToServer(Commands::UpdateDataBase);
+        } else {
+            ui->incomingField->setTextColor(Qt::green);
+            ui->incomingField->append(message);
+        }
     } else if ((int)command == Commands::Exit) {
         QString name, message;
         in >> name >> message;
         if(name != client.username){
             ui->incomingField->setTextColor(Qt::darkRed);
             ui->incomingField->append(message);
+            for(int i = 0; i < includedClients.size(); i++){
+                if(name == ui->clientList->item(i)->text()){
+                    includedClients.removeAt(i);
+                    QListWidgetItem *it = ui->clientList->takeItem(i);
+                    delete it;
+                    break;
+                }
+            }
         }
+    } else if ((int)command == Commands::UpdateDataBase) {
+        quint8 countOfClients; QString name, status;
+        in >> countOfClients;
+        qDebug() << QString::number((int)countOfClients);
+        for (int i = 0; i < (int)countOfClients; i++) {
+            in >> name >> status;
+            qDebug() << name << status;
+            ui->clientList->addItem(name);
+            MyClient *ptr = new MyClient("127.0.0.1", 45678, name, status.toInt(), nullptr);
+            includedClients.push_back(ptr);
+        }
+    } else if ((int)command == Commands::NewClient) {
+        QString name, status;
+        in >> name >> status;
+        ui->clientList->addItem(name);
+        MyClient *ptr = new MyClient("127.0.0.1", 45678, name, status.toInt(), nullptr);
+        includedClients.push_back(ptr);
     }
 }
 
@@ -182,6 +213,7 @@ void ClientWindow::on_nameAct_triggered()
 void ClientWindow::slotDialogUserNameParams(QString username)
 {
     client.username = username;
+    setWindowTitle(client.username);
 }
 
 void ClientWindow::on_actionOnline_triggered()

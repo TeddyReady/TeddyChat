@@ -3,9 +3,9 @@
 #include <QSslSocket>
 
 enum Status {Online, NotInPlace, NotDisturb};
-enum Commands{
-    SendMessage, Authentication,
-    Exit
+enum Commands {
+    SendMessage, Authentication, Exit, 
+        UpdateDataBase, NewClient
 };
 
 class MyClient {

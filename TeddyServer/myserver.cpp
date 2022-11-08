@@ -30,6 +30,23 @@ void MyServer::sendToClient(int command, QString receiver, QString message){
         for(int i = 0; i < clients.size(); i++){
             clients[i]->socket->write(data);
         }
+    } else if (command == Commands::UpdateDataBase) {
+        out << (quint8)(clients.size() - 1);
+        qDebug() << (quint8)(clients.size() - 1);
+        for (int i = 0; i < clients.size() - 1; i++){
+            qDebug() << "Captured!";
+            out << clients[i]->username
+                << QString::number(clients[i]->status);
+        }
+        out.device()->seek(0);
+        out << quint16(data.size() - sizeof(quint16));
+        clients[clients.size() - 1]->socket->write(data);
+    } else if (command == Commands::NewClient) {
+        out << clients[clients.size() - 1]->username
+            << QString::number(clients[clients.size() - 1]->status);
+        out.device()->seek(0);
+        out << quint16(data.size() - sizeof(quint16));
+        clients[receiver.toInt()]->socket->write(data);
     }
 }
 void MyServer::slotReadyRead(){
@@ -57,7 +74,7 @@ void MyServer::slotReadyRead(){
             sendToClient(Commands::Authentication, ptr->username, "Server: " + ptr->username + " join chat channel!");
             emit newConnection(ptr);
     } else if ((int)command == Commands::Exit){
-        QString name, message;
+        QString name;
         in >> name;
         for(int i = 0; i < clients.size(); i++){
             if(name == clients[i]->username){
@@ -67,5 +84,9 @@ void MyServer::slotReadyRead(){
                 break;
             }
         }
+    } else if ((int)command == Commands::UpdateDataBase) {
+        sendToClient(Commands::UpdateDataBase);
+        for (int i = 0; i < clients.size() - 1; i++)
+            sendToClient(Commands::NewClient, QString::number(i));
     }
 }
