@@ -32,15 +32,14 @@ void ServerWindow::slotServerStatus(bool online){
 
 void ServerWindow::slotNewConnection(MyClient *client) {
     ui->chatField->setTextColor(Qt::darkGreen);
-    ui->chatField->append(QTime::currentTime().toString() + " " + client->username + " has been connected");
+    ui->chatField->append(client->time + " " + client->username + " has been connected");
     ui->cntUsers->setText(QString::number(server->clients.size()));
     ui->clientList->addItem(client->username);
-    //server->updateDataInfo("ADD", client, "Server: " + client.username + " join chat channel.");
 }
 
 void ServerWindow::slotClientDisconnected(MyClient *client) {
     ui->chatField->setTextColor(Qt::darkRed);
-    ui->chatField->append(QTime::currentTime().toString() + " " + client->username + " has been disconnected");
+    ui->chatField->append(client->time + " " + client->username + " has been disconnected");
     ui->cntUsers->setText(QString::number(server->clients.size() - 1));
     //Removing client from UI
     for(int i = 0; i < server->clients.size(); i++){

@@ -1,15 +1,25 @@
 #pragma once
+#include <QListWidgetItem>
+#include <QMouseEvent>
 #include <QMainWindow>
-//#include <QtXml>
 #include <QSslSocket>
-#include <QTime>
 #include <QSettings>
-#include <QSound>
 #include <QVector>
-#include "../myclient.h"
-#include "dialogipport.h"
-#include "dialogusername.h"
+#include <QSound>
+#include <QTime>
+#include <QFile>
+
+#include <openssl/engine.h>
+#include <openssl/conf.h>
+#include <openssl/err.h>
+#include <openssl/evp.h>
+
+#include "dialogaboutclient.h"
 #include "dialogaboutautor.h"
+#include "dialogusername.h"
+#include "dialogipport.h"
+#include "dialogxml.h"
+#include "cipher.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class ClientWindow; }
@@ -18,10 +28,25 @@ QT_END_NAMESPACE
 class ClientWindow : public QMainWindow {
     Q_OBJECT
 private:
+    //Chat
     MyClient client;
     quint16 dataSize;
     QVector<MyClient *> includedClients;
-
+    //XML
+    QFile file;
+    QDomDocument doc;
+    QDomElement general;
+    QDomElement date;
+    QDomElement time;
+    QDomElement ip;
+    QDomElement name;
+    QDomElement message;
+    QVector<QString> xmlData;
+    //Menu on sendButton
+    QMenu *btnMenu;
+    QAction* sendMsg;
+    QAction* sendPic;
+    //Other
     QSettings *settings;
     Ui::ClientWindow *ui;
 
@@ -33,15 +58,18 @@ public:
     //Для сохранения и установки настроек в/из ini файл(а)
     void uploadSettings();
     void saveSettings();
+protected:
+    void mousePressEvent(QMouseEvent *event);
 
 public slots:
     void slotReadyRead();
-
+    void slotEncrypted();
 private slots:
     //Меню "File"
     void on_connectAct_triggered();
     void on_disconnectAct_triggered();
     void on_saveHistoryAct_triggered();
+    void slotSavePath(QString, quint64);
     void on_quitAct_triggered();
 
     //Меню "Settings"
@@ -62,4 +90,12 @@ private slots:
     void slotSocketDisconnected();
     void on_appAct_triggered();
 
+    //Меню sendButton
+    void slotSendMessage(bool);
+    void slotSendPicture(bool);
+
+    //UI
+    void on_profileButton_clicked();
+    void showContextMenu(QPoint);
+    void slotInfoAbout();
 };

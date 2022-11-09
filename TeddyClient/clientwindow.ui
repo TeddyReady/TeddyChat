@@ -95,7 +95,7 @@
     <item row="3" column="0">
      <layout class="QGridLayout" name="gridLayout_3">
       <item row="0" column="0">
-       <widget class="QPushButton" name="pushButton">
+       <widget class="QPushButton" name="profileButton">
         <property name="text">
          <string>Profile</string>
         </property>

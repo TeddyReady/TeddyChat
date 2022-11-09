@@ -14,8 +14,47 @@ void MyServer::deployServer(){
 
 void MyServer::incomingConnection(qintptr socketDescriptor){
     socket = new QSslSocket(this);
-    socket->setSocketDescriptor(socketDescriptor);
-    connect(socket, SIGNAL(readyRead()), this, SLOT(slotReadyRead()));
+    if(socket->setSocketDescriptor(socketDescriptor)) {
+    //KEY & CERT GENERATION
+    EVP_PKEY * privKey = genKey();
+       if (privKey == NULL){
+          qDebug() << "NULL PRIVATE KEY";
+          exit(-1);
+       }
+
+       X509 * certif = genX509(privKey);
+       if (certif == NULL){
+          qDebug() << "NULL CERT";
+          exit(-1);
+       }
+
+       BIO* bio = BIO_new(BIO_s_mem());
+       if (!PEM_write_bio_X509(bio, certif)){
+          qDebug() << "NULL RETURNED BY PEM_write_bio_x509";
+           exit(-1);
+       }
+
+       BUF_MEM* biostruct;
+       BIO_get_mem_ptr(bio, &biostruct);
+       std::unique_ptr<char[]> buf = std::make_unique<char[]>(biostruct->length);
+       if (static_cast<size_t>(BIO_read(bio, buf.get(), biostruct->length)) != biostruct->length){
+          qDebug() << "BIO_read unable to get information from Buffer";
+          exit(-1);
+       }
+        QSslCertificate cert(QByteArray(buf.get(), biostruct->length));
+        QSslKey key(reinterpret_cast<Qt::HANDLE>(privKey));
+
+        QSslConfiguration config;
+        config.setLocalCertificate(cert);
+        config.setPrivateKey(key);
+
+        socket->setSslConfiguration(config);
+        connect(socket, SIGNAL(readyRead()), this, SLOT(slotReadyRead()));
+        socket->startServerEncryption();
+    }
+    else{
+        delete socket;
+    }
 }
 
 void MyServer::sendToClient(int command, QString receiver, QString message){
@@ -23,7 +62,16 @@ void MyServer::sendToClient(int command, QString receiver, QString message){
     QDataStream out(&data, QIODevice::WriteOnly);
     out.setVersion(QDataStream::Qt_5_12);
     out << (quint16)0 << (quint8)command;
-    if(command == Commands::SendMessage || command == Commands::Authentication || command == Commands::Exit) {
+    if(command == Commands::SendMessage) {
+        out << receiver << message
+            << QDate::currentDate().toString()
+            << QTime::currentTime().toString();
+        out.device()->seek(0);
+        out << quint16(data.size() - sizeof(quint16));
+        for(int i = 0; i < clients.size(); i++){
+            clients[i]->socket->write(data);
+        }
+    } else if(command == Commands::Authentication || command == Commands::Exit) {
         out << receiver << message;
         out.device()->seek(0);
         out << quint16(data.size() - sizeof(quint16));
@@ -32,18 +80,21 @@ void MyServer::sendToClient(int command, QString receiver, QString message){
         }
     } else if (command == Commands::UpdateDataBase) {
         out << (quint8)(clients.size() - 1);
-        qDebug() << (quint8)(clients.size() - 1);
         for (int i = 0; i < clients.size() - 1; i++){
-            qDebug() << "Captured!";
             out << clients[i]->username
-                << QString::number(clients[i]->status);
+                << QString::number(clients[i]->status)
+                << clients[i]->date
+                << clients[i]->time;
         }
         out.device()->seek(0);
         out << quint16(data.size() - sizeof(quint16));
         clients[clients.size() - 1]->socket->write(data);
     } else if (command == Commands::NewClient) {
         out << clients[clients.size() - 1]->username
-            << QString::number(clients[clients.size() - 1]->status);
+            << QString::number(clients[clients.size() - 1]->status)
+            << clients[clients.size() - 1]->date
+            << clients[clients.size() - 1]->time;
+
         out.device()->seek(0);
         out << quint16(data.size() - sizeof(quint16));
         clients[receiver.toInt()]->socket->write(data);
@@ -65,14 +116,14 @@ void MyServer::slotReadyRead(){
     if((int)command == Commands::SendMessage) {
         QString name, message;
         in >> name >> message;
-        sendToClient(Commands::SendMessage, name ,": " + message);
+        sendToClient(Commands::SendMessage, name, message);
     } else if((int)command == Commands::Authentication){
-        QString ip, port, name, status;
-        in >> ip >> port >> name >> status;
-            MyClient *ptr = new MyClient(ip, port.toInt(), name, status.toInt(), socket);
+        QString ip, port, name, status, date, time;
+        in >> ip >> port >> name >> status >> date >> time;
+            MyClient *ptr = new MyClient(ip, port.toInt(), name, status.toInt(), date, time, socket);
             clients.push_back(ptr);
-            sendToClient(Commands::Authentication, ptr->username, "Server: " + ptr->username + " join chat channel!");
             emit newConnection(ptr);
+            sendToClient(Commands::Authentication, ptr->username, "Server: " + ptr->username + " join chat channel!");
     } else if ((int)command == Commands::Exit){
         QString name;
         in >> name;

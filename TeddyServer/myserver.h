@@ -1,12 +1,14 @@
 #pragma once
+#include <QSslConfiguration>
+#include <QDataStream>
 #include <QTcpServer>
 #include <QSslSocket>
 #include <QVector>
-#include <QDebug>
-#include <QDataStream>
 #include <QString>
-#include "../myclient.h"
+#include <QSslKey>
 
+#include "keygenerator.h"
+#include "../myclient.h"
 class MyClient;
 
 class MyServer: public QTcpServer {
@@ -26,7 +28,6 @@ public:
 public slots:
     void incomingConnection(qintptr socketDescriptor);
     void slotReadyRead();
-
 signals:
     void serverStarted(bool);
     void newConnection(MyClient *);

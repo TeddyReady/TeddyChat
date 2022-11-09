@@ -1,5 +1,6 @@
 #pragma once
 #include <QString>
+#include <QDateTime>
 #include <QSslSocket>
 
 enum Status {Online, NotInPlace, NotDisturb};
@@ -14,18 +15,17 @@ public:
     int port;
     QString username;
     int status;
+    QString date, time;
+
     QSslSocket *socket;
 
     MyClient(QString ip = "127.0.0.1", int port = 45678, QString username = "Unknown User",
-                      int status = Status::Online, QSslSocket *socket = nullptr)
-        : ip(ip), port(port), username(username), status(status) {
+                      int status = Status::Online, QString date = "no info", QString time = "no info", QSslSocket *socket = nullptr)
+        : ip(ip), port(port), username(username), status(status), date(date), time(time) {
         this->socket = socket;
     }
 
-    ~MyClient()
-    {
-        delete socket;
-    }
+    ~MyClient() {}
 
     bool operator==(const MyClient &client)
     {

@@ -2,7 +2,7 @@ QT += core gui network xml multimedia
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
-CONFIG += c++11
+CONFIG += c++17
 
 # The following define makes your compiler emit warnings if you use
 # any Qt feature that has been marked deprecated (the exact warnings
@@ -16,23 +16,35 @@ DEFINES += QT_DEPRECATED_WARNINGS
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+    cipher.cpp \
     clientwindow.cpp \
     dialogaboutautor.cpp \
+    dialogaboutclient.cpp \
     dialogipport.cpp \
     dialogusername.cpp \
+    dialogxml.cpp \
     main.cpp
 
 HEADERS += \
+    cipher.h \
     clientwindow.h \
     dialogaboutautor.h \
+    dialogaboutclient.h \
     dialogipport.h \
-    dialogusername.h
+    dialogusername.h \
+    dialogxml.h
 
 FORMS += \
     clientwindow.ui \
     dialogaboutautor.ui \
+    dialogaboutclient.ui \
     dialogipport.ui \
-    dialogusername.ui
+    dialogusername.ui \
+    dialogxml.ui
+
+PKGCONFIG += openssl
+
+LIBS += -lcrypto
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
