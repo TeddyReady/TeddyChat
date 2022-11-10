@@ -9,11 +9,6 @@
 #include <QTime>
 #include <QFile>
 
-#include <openssl/engine.h>
-#include <openssl/conf.h>
-#include <openssl/err.h>
-#include <openssl/evp.h>
-
 #include "dialogaboutclient.h"
 #include "dialogaboutautor.h"
 #include "dialogusername.h"
