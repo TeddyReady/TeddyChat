@@ -13,6 +13,7 @@
 #include "dialogaboutautor.h"
 #include "dialogusername.h"
 #include "dialogipport.h"
+#include "dialogexit.h"
 #include "dialogxml.h"
 #include "cipher.h"
 
@@ -59,8 +60,9 @@ protected:
 public slots:
     void slotReadyRead();
     void slotEncrypted();
+    void slotReConnection();
 private slots:
-    //Меню "File"
+    //Меню "General"
     void on_connectAct_triggered();
     void on_disconnectAct_triggered();
     void on_saveHistoryAct_triggered();
@@ -93,4 +95,6 @@ private slots:
     void on_profileButton_clicked();
     void showContextMenu(QPoint);
     void slotInfoAbout();
+signals:
+    void ReConnection();
 };

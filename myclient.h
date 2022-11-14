@@ -1,12 +1,14 @@
 #pragma once
-#include <QString>
-#include <QDateTime>
 #include <QSslSocket>
+#include <QDateTime>
+#include <QString>
+#include <QIcon>
 
 enum Status {Online, NotInPlace, NotDisturb};
 enum Commands {
     SendMessage, Authentication, Exit, 
-        UpdateDataBase, NewClient
+        UpdateDataBase, NewClient,
+    DataChanged, Restart
 };
 
 class MyClient {
@@ -18,11 +20,14 @@ public:
     QString date, time;
 
     QSslSocket *socket;
+    QIcon *avatar;
 
     MyClient(QString ip = "127.0.0.1", int port = 45678, QString username = "Unknown User",
-                      int status = Status::Online, QString date = "no info", QString time = "no info", QSslSocket *socket = nullptr)
+             int status = Status::Online, QString date = "no info",
+             QString time = "no info", QSslSocket *socket = nullptr)
         : ip(ip), port(port), username(username), status(status), date(date), time(time) {
         this->socket = socket;
+        this->avatar = new QIcon(":/new/prefix1/other/client.png");
     }
 
     ~MyClient() {}

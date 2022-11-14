@@ -20,6 +20,7 @@ SOURCES += \
     clientwindow.cpp \
     dialogaboutautor.cpp \
     dialogaboutclient.cpp \
+    dialogexit.cpp \
     dialogipport.cpp \
     dialogusername.cpp \
     dialogxml.cpp \
@@ -30,6 +31,7 @@ HEADERS += \
     clientwindow.h \
     dialogaboutautor.h \
     dialogaboutclient.h \
+    dialogexit.h \
     dialogipport.h \
     dialogusername.h \
     dialogxml.h
@@ -38,6 +40,7 @@ FORMS += \
     clientwindow.ui \
     dialogaboutautor.ui \
     dialogaboutclient.ui \
+    dialogexit.ui \
     dialogipport.ui \
     dialogusername.ui \
     dialogxml.ui

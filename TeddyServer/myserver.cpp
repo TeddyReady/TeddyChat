@@ -1,11 +1,8 @@
 #include "myserver.h"
 
-MyServer::MyServer() {
-    ip = "127.0.0.1";
-    port = 45678;
-}
+MyServer::MyServer() {}
 void MyServer::deployServer(){
-    if (this->listen(QHostAddress::LocalHost, port)) {
+    if (this->listen(static_cast<QHostAddress>(ip), port)) {
         emit serverStarted(true);
     } else {
         emit serverStarted(false);
@@ -98,6 +95,19 @@ void MyServer::sendToClient(int command, QString receiver, QString message){
         out.device()->seek(0);
         out << quint16(data.size() - sizeof(quint16));
         clients[receiver.toInt()]->socket->write(data);
+    } else if (command == Commands::Restart) {
+        out.device()->seek(0);
+        out << quint16(data.size() - sizeof(quint16));
+        for(int i = 0; i < clients.size(); i++){
+            clients[i]->socket->write(data);
+        }
+    } else if (command == Commands::DataChanged) {
+        out << receiver << message;
+        out.device()->seek(0);
+        out << quint16(data.size() - sizeof(quint16));
+        for(int i = 0; i < clients.size(); i++){
+            clients[i]->socket->write(data);
+        }
     }
 }
 void MyServer::slotReadyRead(){
@@ -139,5 +149,25 @@ void MyServer::slotReadyRead(){
         sendToClient(Commands::UpdateDataBase);
         for (int i = 0; i < clients.size() - 1; i++)
             sendToClient(Commands::NewClient, QString::number(i));
+    } else if ((int)command == Commands::DataChanged) {
+        QString name, newData; in >> name >> newData;
+        if (newData == QString::number(Status::Online) ||
+            newData == QString::number(Status::NotInPlace) ||
+            newData == QString::number(Status::NotDisturb)) {
+            for (MyClient *ptr: clients){
+                if (ptr->username == name) {
+                    ptr->status = newData.toInt();
+                    break;
+                }
+            } sendToClient(Commands::DataChanged, name, newData);
+        } else {
+            for (MyClient *ptr: clients){
+                if (ptr->username == name) {
+                    ptr->username = newData;
+                    emit reNameOnUI(name, newData);
+                    break;
+                }
+            } sendToClient(Commands::DataChanged, name, newData);
+        }
     }
 }

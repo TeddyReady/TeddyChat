@@ -169,7 +169,7 @@
    </widget>
    <widget class="QMenu" name="menuFile">
     <property name="title">
-     <string>File</string>
+     <string>General</string>
     </property>
     <addaction name="connectAct"/>
     <addaction name="disconnectAct"/>
@@ -218,7 +218,7 @@
   </action>
   <action name="quitAct">
    <property name="text">
-    <string>Exit</string>
+    <string>Exit...</string>
    </property>
    <property name="toolTip">
     <string>Exit application</string>

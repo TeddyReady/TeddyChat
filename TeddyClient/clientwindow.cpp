@@ -6,7 +6,7 @@ ClientWindow::ClientWindow(QWidget *parent)
     , ui(new Ui::ClientWindow)
 {
     //Загружаем настройки
-    settings = new QSettings("/home/kataich75/qtprojects/TECH/TeddyClient/settings.ini", QSettings::IniFormat, this);
+    settings = new QSettings("/home/kataich75/qtprojects/TECH/TeddyClient/other/settings.ini", QSettings::IniFormat, this);
     uploadSettings();
 
     ui->setupUi(this);
@@ -103,7 +103,9 @@ void ClientWindow::sendToServer(int command, QString message)
             << client.date << client.time;
     } else if (command == Commands::Exit) {
         out << client.username;
-    } else if (command == Commands::UpdateDataBase) {}
+    } else if (command == Commands::DataChanged) {
+        out << client.username << message;
+    }
     out.device()->seek(0);
     out << (quint16)(data.size() - sizeof(quint16));
     client.socket->write(data);
@@ -122,6 +124,7 @@ void ClientWindow::slotReadyRead()
     //END
     quint8 command;
     in >> command;
+
     if((int)command == Commands::SendMessage) {
         QString name, message, date, time;
         in >> name >> message >> date >> time;
@@ -130,9 +133,8 @@ void ClientWindow::slotReadyRead()
             ui->incomingField->append("You: " + message);
         } else {
             if (client.status != Status::NotDisturb){
-                QSound::play("/home/kataich75/qtprojects/TECH/TeddyClient/newmessage.wav");
+                QSound::play("/home/kataich75/qtprojects/TECH/TeddyClient/other/newmessage.wav");
             }
-
             ui->incomingField->setTextColor(Qt::blue);
             ui->incomingField->append(name + ": " + message);
         }
@@ -155,10 +157,15 @@ void ClientWindow::slotReadyRead()
             ui->incomingField->setTextColor(Qt::green);
             ui->incomingField->append(message);
         }
+
     } else if ((int)command == Commands::Exit) {
         QString name, message;
         in >> name >> message;
-        if(name != client.username){
+        if (name == "Server"){
+            ui->clientList->clear();
+            ui->incomingField->setTextColor(Qt::darkRed);
+            ui->incomingField->append(message);
+        } else if(name != client.username){
             ui->incomingField->setTextColor(Qt::darkRed);
             ui->incomingField->append(message);
             for(int i = 0; i < includedClients.size(); i++){
@@ -170,6 +177,7 @@ void ClientWindow::slotReadyRead()
                 }
             }
         }
+
     } else if ((int)command == Commands::UpdateDataBase) {
         quint8 countOfClients;
         in >> countOfClients;
@@ -180,12 +188,71 @@ void ClientWindow::slotReadyRead()
             MyClient *ptr = new MyClient("127.0.0.1", 45678, name, status.toInt(), date, time, nullptr);
             includedClients.push_back(ptr);
         }
+
     } else if ((int)command == Commands::NewClient) {
         QString name, status, date, time;
         in >> name >> status >> date >> time;
         ui->clientList->addItem(name);
         MyClient *ptr = new MyClient("127.0.0.1", 45678, name, status.toInt(), date, time, nullptr);
         includedClients.push_back(ptr);
+
+    } else if ((int)command == Commands::Restart) {
+        statusBar()->showMessage("Reconnecting...", 2500);
+        disconnect(client.socket, SIGNAL(readyRead()), this, SLOT(slotReadyRead()));
+        disconnect(client.socket, SIGNAL(connected()), this, SLOT(slotSocketConnected()));
+        disconnect(client.socket, SIGNAL(disconnected()), this, SLOT(slotSocketDisconnected()));
+        disconnect(client.socket, SIGNAL(encrypted()), this, SLOT(slotEncrypted()));
+        connect(this, SIGNAL(ReConnection()), this, SLOT(slotReConnection()));
+        ui->incomingField->setTextColor(Qt::darkYellow);
+        ui->incomingField->append("Reloading server with new SSL keys...");
+        sendToServer(Commands::Exit);
+        client.socket->disconnectFromHost();
+        emit ReConnection();
+        client.socket->setPeerVerifyMode(QSslSocket::VerifyNone);
+        client.socket->connectToHostEncrypted(client.ip, client.port);
+
+    } else if ((int)command == Commands::DataChanged) {
+        statusBar()->showMessage("Sending new data to server...", 2500);
+        QString name, message; in >> name >> message;
+        if (message == QString::number(Status::Online) ||
+        message == QString::number(Status::NotInPlace) ||
+        message == QString::number(Status::NotDisturb)) {
+            if (name == client.username) {
+                ui->incomingField->setTextColor(Qt::cyan);
+                ui->incomingField->append("Server: Your status has been updated!");
+            } else {
+                for (MyClient *ptr: includedClients) {
+                    if (ptr->username == name) {
+                        ptr->status = message.toInt();
+                        qDebug() << message.toInt();
+                        ui->incomingField->setTextColor(Qt::darkCyan);
+                        ui->incomingField->append("Server: " + name + " status has been updated!");
+                        break;
+                    }
+                }
+            }
+        } else {
+            if (name == client.username) {
+                client.username = message;
+                ui->incomingField->setTextColor(Qt::cyan);
+                ui->incomingField->append("Server: Your name has been updated for " + message + "!");
+            } else {
+                for (MyClient *ptr: includedClients) {
+                    if (ptr->username == name) {
+                        ptr->username = message;
+                        for(int i = 0; i < includedClients.size(); i++){
+                            if(name == ui->clientList->item(i)->text()){
+                                ui->clientList->item(i)->setText(message);
+                                break;
+                            }
+                        }
+                        ui->incomingField->setTextColor(Qt::darkCyan);
+                        ui->incomingField->append("Server: " + name + " name has been updated for " + message + "!");
+                        break;
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -195,9 +262,17 @@ void ClientWindow::slotEncrypted(){
     sendToServer(Commands::Authentication);
 }
 
-//Меню "File"
+void ClientWindow::slotReConnection(){
+    connect(client.socket, SIGNAL(readyRead()), this, SLOT(slotReadyRead()));
+    connect(client.socket, SIGNAL(connected()), this, SLOT(slotSocketConnected()));
+    connect(client.socket, SIGNAL(disconnected()), this, SLOT(slotSocketDisconnected()));
+    connect(client.socket, SIGNAL(encrypted()), this, SLOT(slotEncrypted()));
+}
+
+//Меню "General"
 void ClientWindow::on_connectAct_triggered()
 {
+    statusBar()->showMessage("Connect to server...", 2500);
     client.socket->setPeerVerifyMode(QSslSocket::VerifyNone);
     client.socket->connectToHostEncrypted(client.ip, client.port);
 }
@@ -208,11 +283,11 @@ void ClientWindow::slotSocketConnected()
     ui->quitAct->setDisabled(true);
     ui->sendButton->setEnabled(true);
     ui->ipPortAct->setDisabled(true);
-    ui->nameAct->setDisabled(true);
 }
 
 void ClientWindow::on_disconnectAct_triggered()
 {
+    statusBar()->showMessage("Disconnect from server...", 2500);
     sendToServer(Commands::Exit);
     client.socket->disconnectFromHost();
 }
@@ -224,12 +299,12 @@ void ClientWindow::slotSocketDisconnected()
     ui->sendButton->setDisabled(true);
     ui->incomingField->clear();
     ui->ipPortAct->setEnabled(true);
-    ui->nameAct->setEnabled(true);
     ui->clientList->clear();
 }
 
 void ClientWindow::on_saveHistoryAct_triggered()
 {
+    statusBar()->showMessage("Saving history...", 2500);
     DialogXML *window = new DialogXML(this);
     window->setWindowTitle("Save your chat history");
     window->show();
@@ -279,12 +354,16 @@ void ClientWindow::slotSavePath(QString path, quint64 pass)
 
 void ClientWindow::on_quitAct_triggered()
 {
-    qApp->exit();
+    statusBar()->showMessage("Please, noo...", 2500);
+    DialogExit *window = new DialogExit(this);
+    window->setWindowTitle("Quiting app");
+    window->show();
 }
 
 //Меню "Settings"
 void ClientWindow::on_ipPortAct_triggered()
 {
+    statusBar()->showMessage("Changing your ip & port...", 2500);
     DialogIPPort *window = new DialogIPPort(this, client.ip, client.port);
     window->setWindowTitle("Edit Your Ip and Port");
     window->show();
@@ -300,6 +379,7 @@ void ClientWindow::slotDialogIPPortParams(QString ip, int port)
 
 void ClientWindow::on_nameAct_triggered()
 {
+    statusBar()->showMessage("Changing your name...", 2500);
     DialogUserName *window = new DialogUserName(this, client.username);
     window->setWindowTitle("Edit Your Name");
     window->show();
@@ -307,40 +387,52 @@ void ClientWindow::on_nameAct_triggered()
 }
 void ClientWindow::slotDialogUserNameParams(QString username)
 {
-    client.username = username;
-    setWindowTitle(client.username);
+    setWindowTitle(username);
+    if (client.socket->isEncrypted())
+        sendToServer(Commands::DataChanged, username);
+    else client.username = username;
 }
 
 void ClientWindow::on_actionOnline_triggered()
 {
+    statusBar()->showMessage("Now you are Online!", 2500);
     if (ui->actionOnline->isChecked()) {
         ui->actionNotInPlace->setChecked(false);
         ui->actionDoNotDisturb->setChecked(false);
         client.status = Status::Online;
         ui->labelStatus->setText("Online");
-    }
+        if (client.socket->isEncrypted())
+            sendToServer(Commands::DataChanged, QString::number(Status::Online));
+    } else ui->actionOnline->setChecked(true);
 }
 void ClientWindow::on_actionNotInPlace_triggered()
 {
+    statusBar()->showMessage("Now you are Not In Place!", 2500);
     if (ui->actionNotInPlace->isChecked()) {
         ui->actionOnline->setChecked(false);
         ui->actionDoNotDisturb->setChecked(false);
         client.status = Status::NotInPlace;
         ui->labelStatus->setText("Not In Place");
-    }
+        if (client.socket->isEncrypted())
+            sendToServer(Commands::DataChanged, QString::number(Status::NotInPlace));
+    } else ui->actionNotInPlace->setChecked(true);
 }
 void ClientWindow::on_actionDoNotDisturb_triggered()
 {
+    statusBar()->showMessage("Now you are Not Disturb!", 2500);
     if (ui->actionDoNotDisturb->isChecked()) {
         ui->actionOnline->setChecked(false);
         ui->actionNotInPlace->setChecked(false);
         client.status = Status::NotDisturb;
         ui->labelStatus->setText("Do Not Disturb");
-    }
+        if (client.socket->isEncrypted())
+            sendToServer(Commands::DataChanged, QString::number(Status::NotDisturb));
+    } else ui->actionDoNotDisturb->setChecked(true);
 }
 //Меню "Help"
 void ClientWindow::on_appAct_triggered()
 {
+    statusBar()->showMessage("Seems like a really good man...", 2500);
     DialogAboutAutor *window = new DialogAboutAutor(this);
     window->setWindowTitle("About Application");
     window->show();
@@ -349,18 +441,21 @@ void ClientWindow::on_appAct_triggered()
 //UI Buttons
 void ClientWindow::on_profileButton_clicked()
 {
+    statusBar()->showMessage("Showing your profile...", 2500);
     DialogAboutClient *window = new DialogAboutClient(this, client);
     window->show();
 }
 
 void ClientWindow::slotSendMessage(bool)
 {
+    statusBar()->showMessage("Selected option: message", 2500);
     if(sendMsg->isChecked()){
         sendMsg->setChecked(true);
         sendPic->setChecked(false);
     } else sendMsg->setChecked(false);
 }
 void ClientWindow::slotSendPicture(bool) {
+    statusBar()->showMessage("Selected option: picture", 2500);
     if(sendPic->isChecked()){
         sendPic->setChecked(false);
         sendMsg->setChecked(false);
@@ -369,6 +464,7 @@ void ClientWindow::slotSendPicture(bool) {
 
 void ClientWindow::on_sendButton_clicked()
 {
+    statusBar()->showMessage("Sending message...", 2500);
     if (sendMsg->isChecked()){
         sendToServer(Commands::SendMessage, ui->messageField->text());
         ui->messageField->clear();
@@ -376,6 +472,7 @@ void ClientWindow::on_sendButton_clicked()
 }
 void ClientWindow::on_messageField_returnPressed()
 {
+    statusBar()->showMessage("Sending message...", 2500);
     if (sendMsg->isChecked()){
         sendToServer(Commands::SendMessage, ui->messageField->text());
         ui->messageField->clear();

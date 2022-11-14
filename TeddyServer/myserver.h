@@ -12,11 +12,10 @@
 class MyClient;
 
 class MyServer: public QTcpServer {
-    Q_OBJECT
-private:
+    Q_OBJECT 
+public:
     QString ip;
     int port;
-public:
     QVector<MyClient *> clients;
     QSslSocket *socket;
     quint16 dataSize = 0;
@@ -32,4 +31,5 @@ signals:
     void serverStarted(bool);
     void newConnection(MyClient *);
     void clientDisconnected(MyClient *);
+    void reNameOnUI(QString, QString);
 };

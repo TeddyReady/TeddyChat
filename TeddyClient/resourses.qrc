@@ -1,5 +1,6 @@
 <RCC>
     <qresource prefix="/new/prefix1">
-        <file>icon/creator.png</file>
+        <file>other/creator.png</file>
+        <file>other/client.png</file>
     </qresource>
 </RCC>
