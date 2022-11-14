@@ -156,6 +156,8 @@
      <addaction name="actionOnline"/>
      <addaction name="actionNotInPlace"/>
      <addaction name="actionDoNotDisturb"/>
+     <addaction name="separator"/>
+     <addaction name="actionOther"/>
     </widget>
     <addaction name="ipPortAct"/>
     <addaction name="nameAct"/>
@@ -285,6 +287,17 @@
    </property>
    <property name="toolTip">
     <string>Set do not disturb status</string>
+   </property>
+  </action>
+  <action name="actionOther">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Create your status...</string>
+   </property>
+   <property name="toolTip">
+    <string>Create your status!</string>
    </property>
   </action>
  </widget>

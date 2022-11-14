@@ -17,6 +17,9 @@ DialogAboutClient::DialogAboutClient(QWidget *parent, MyClient client) :
     case Status::NotDisturb:
         ui->statusLabel->setText("Do Not Disturb");
         break;
+    case Status::Other:
+        ui->statusLabel->setText(client.statusName);
+        break;
     }
     ui->dataLabel->setText(client.date);
     ui->labelIn->setText("in");

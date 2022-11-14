@@ -5,11 +5,11 @@ ClientWindow::ClientWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::ClientWindow)
 {
+    ui->setupUi(this);
     //Загружаем настройки
     settings = new QSettings("/home/kataich75/qtprojects/TECH/TeddyClient/other/settings.ini", QSettings::IniFormat, this);
     uploadSettings();
 
-    ui->setupUi(this);
     ui->disconnectAct->setDisabled(true);
     ui->sendButton->setDisabled(true);
     ui->saveHistoryAct->setDisabled(true);
@@ -27,6 +27,10 @@ ClientWindow::ClientWindow(QWidget *parent)
     case Status::NotDisturb:
         ui->labelStatus->setText("Do Not Disturb");
         ui->actionDoNotDisturb->setChecked(true);
+        break;
+    case Status::Other:
+        ui->labelStatus->setText(client.statusName);
+        ui->actionOther->setChecked(true);
         break;
     }
 
@@ -73,6 +77,7 @@ void ClientWindow::uploadSettings(){
     client.port = settings->value("port", "45678").toInt();
     client.username = settings->value("username", "Unknown User").toString();
     client.status = settings->value("status", Status::Online).toInt();
+    ui->actionOther->setText(settings->value("customStatus", "Working on Lab").toString());
     setGeometry(settings->value("geometry", QRect(200, 200, 530, 388)).toRect());
 }
 void ClientWindow::saveSettings(){
@@ -80,6 +85,7 @@ void ClientWindow::saveSettings(){
     settings->setValue("port", client.port);
     settings->setValue("username", client.username);
     settings->setValue("status", client.status);
+    settings->setValue("customStatus", client.statusName);
     settings->setValue("geometry", geometry());
 }
 
@@ -89,7 +95,7 @@ void ClientWindow::mousePressEvent(QMouseEvent *event){
     else ui->sendButton->setMenu(NULL);
 }
 
-void ClientWindow::sendToServer(int command, QString message)
+void ClientWindow::sendToServer(int command, QString message, int option)
 {
     QByteArray data; data.clear();
     QDataStream out(&data, QIODevice::WriteOnly);
@@ -104,7 +110,11 @@ void ClientWindow::sendToServer(int command, QString message)
     } else if (command == Commands::Exit) {
         out << client.username;
     } else if (command == Commands::DataChanged) {
-        out << client.username << message;
+        out << client.username;
+        if (option == Status::Other) {
+            out << QString::number(option);
+        }
+        out << message;
     }
     out.device()->seek(0);
     out << (quint16)(data.size() - sizeof(quint16));
@@ -202,12 +212,11 @@ void ClientWindow::slotReadyRead()
         disconnect(client.socket, SIGNAL(connected()), this, SLOT(slotSocketConnected()));
         disconnect(client.socket, SIGNAL(disconnected()), this, SLOT(slotSocketDisconnected()));
         disconnect(client.socket, SIGNAL(encrypted()), this, SLOT(slotEncrypted()));
-        connect(this, SIGNAL(ReConnection()), this, SLOT(slotReConnection()));
         ui->incomingField->setTextColor(Qt::darkYellow);
         ui->incomingField->append("Reloading server with new SSL keys...");
         sendToServer(Commands::Exit);
         client.socket->disconnectFromHost();
-        emit ReConnection();
+        reConnection();
         client.socket->setPeerVerifyMode(QSslSocket::VerifyNone);
         client.socket->connectToHostEncrypted(client.ip, client.port);
 
@@ -224,9 +233,24 @@ void ClientWindow::slotReadyRead()
                 for (MyClient *ptr: includedClients) {
                     if (ptr->username == name) {
                         ptr->status = message.toInt();
-                        qDebug() << message.toInt();
                         ui->incomingField->setTextColor(Qt::darkCyan);
                         ui->incomingField->append("Server: " + name + " status has been updated!");
+                        break;
+                    }
+                }
+            }
+        } else if (message == QString::number(Status::Other)) {
+            QString customStatus; in >> customStatus;
+            if (name == client.username) {
+                ui->incomingField->setTextColor(Qt::cyan);
+                ui->incomingField->append("Server: Your status has been updated for " + customStatus + "!");
+            } else {
+                for (MyClient *ptr: includedClients) {
+                    if (ptr->username == name) {
+                        ptr->status = message.toInt();
+                        ptr->statusName = customStatus;
+                        ui->incomingField->setTextColor(Qt::darkCyan);
+                        ui->incomingField->append("Server: " + name + " status has been updated for " + customStatus + "!");
                         break;
                     }
                 }
@@ -262,7 +286,7 @@ void ClientWindow::slotEncrypted(){
     sendToServer(Commands::Authentication);
 }
 
-void ClientWindow::slotReConnection(){
+void ClientWindow::reConnection(){
     connect(client.socket, SIGNAL(readyRead()), this, SLOT(slotReadyRead()));
     connect(client.socket, SIGNAL(connected()), this, SLOT(slotSocketConnected()));
     connect(client.socket, SIGNAL(disconnected()), this, SLOT(slotSocketDisconnected()));
@@ -399,6 +423,7 @@ void ClientWindow::on_actionOnline_triggered()
     if (ui->actionOnline->isChecked()) {
         ui->actionNotInPlace->setChecked(false);
         ui->actionDoNotDisturb->setChecked(false);
+        ui->actionOther->setChecked(false);
         client.status = Status::Online;
         ui->labelStatus->setText("Online");
         if (client.socket->isEncrypted())
@@ -411,6 +436,7 @@ void ClientWindow::on_actionNotInPlace_triggered()
     if (ui->actionNotInPlace->isChecked()) {
         ui->actionOnline->setChecked(false);
         ui->actionDoNotDisturb->setChecked(false);
+        ui->actionOther->setChecked(false);
         client.status = Status::NotInPlace;
         ui->labelStatus->setText("Not In Place");
         if (client.socket->isEncrypted())
@@ -423,11 +449,34 @@ void ClientWindow::on_actionDoNotDisturb_triggered()
     if (ui->actionDoNotDisturb->isChecked()) {
         ui->actionOnline->setChecked(false);
         ui->actionNotInPlace->setChecked(false);
+        ui->actionOther->setChecked(false);
         client.status = Status::NotDisturb;
         ui->labelStatus->setText("Do Not Disturb");
         if (client.socket->isEncrypted())
             sendToServer(Commands::DataChanged, QString::number(Status::NotDisturb));
     } else ui->actionDoNotDisturb->setChecked(true);
+}
+
+void ClientWindow::on_actionOther_triggered()
+{
+    statusBar()->showMessage("Creating your status...", 2500);
+    DialogOtherStatus *window = new DialogOtherStatus(this);
+    window->setWindowTitle("Create your status");
+    window->show();
+    connect(window, SIGNAL(dialogOtherStatusParams(QString)), this, SLOT(slotDialogOtherStatusParams(QString)));
+}
+void ClientWindow::slotDialogOtherStatusParams(QString customStatus){
+    statusBar()->showMessage("Now you are " + customStatus + "!", 2500);
+    ui->actionOnline->setChecked(false);
+    ui->actionNotInPlace->setChecked(false);
+    ui->actionDoNotDisturb->setChecked(false);
+    ui->actionOther->setChecked(true);
+    client.status = Status::Other;
+    client.statusName = customStatus;
+    ui->labelStatus->setText(customStatus);
+    ui->actionOther->setText(customStatus);
+    if (client.socket->isEncrypted())
+        sendToServer(Commands::DataChanged, customStatus, Status::Other);
 }
 //Меню "Help"
 void ClientWindow::on_appAct_triggered()

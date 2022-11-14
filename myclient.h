@@ -4,7 +4,7 @@
 #include <QString>
 #include <QIcon>
 
-enum Status {Online, NotInPlace, NotDisturb};
+enum Status {Online, NotInPlace, NotDisturb, Other};
 enum Commands {
     SendMessage, Authentication, Exit, 
         UpdateDataBase, NewClient,
@@ -18,6 +18,7 @@ public:
     QString username;
     int status;
     QString date, time;
+    QString statusName;
 
     QSslSocket *socket;
     QIcon *avatar;

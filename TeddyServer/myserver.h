@@ -23,7 +23,7 @@ public:
     explicit MyServer();
     void deployServer();
 
-    void sendToClient(int command, QString receiver = "", QString message = "");
+    void sendToClient(int command, QString receiver = "", QString message = "", int option = 0);
 public slots:
     void incomingConnection(qintptr socketDescriptor);
     void slotReadyRead();

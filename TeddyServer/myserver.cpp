@@ -54,7 +54,7 @@ void MyServer::incomingConnection(qintptr socketDescriptor){
     }
 }
 
-void MyServer::sendToClient(int command, QString receiver, QString message){
+void MyServer::sendToClient(int command, QString receiver, QString message, int option){
     QByteArray data; data.clear();
     QDataStream out(&data, QIODevice::WriteOnly);
     out.setVersion(QDataStream::Qt_5_12);
@@ -102,7 +102,10 @@ void MyServer::sendToClient(int command, QString receiver, QString message){
             clients[i]->socket->write(data);
         }
     } else if (command == Commands::DataChanged) {
-        out << receiver << message;
+        out << receiver;
+        if (option == Status::Other)
+            out << QString::number(option);
+        out << message;
         out.device()->seek(0);
         out << quint16(data.size() - sizeof(quint16));
         for(int i = 0; i < clients.size(); i++){
@@ -160,6 +163,14 @@ void MyServer::slotReadyRead(){
                     break;
                 }
             } sendToClient(Commands::DataChanged, name, newData);
+        } else if (newData == QString::number(Status::Other)) {
+            QString customStatus; in >> customStatus;
+            for (MyClient *ptr: clients){
+                if (ptr->username == name) {
+                    ptr->status = newData.toInt();
+                    break;
+                }
+            } sendToClient(Commands::DataChanged, name, customStatus, Status::Other);
         } else {
             for (MyClient *ptr: clients){
                 if (ptr->username == name) {
