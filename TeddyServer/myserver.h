@@ -6,6 +6,7 @@
 #include <QVector>
 #include <QString>
 #include <QSslKey>
+#include <QTimer>
 
 #include "keygenerator.h"
 #include "../myclient.h"

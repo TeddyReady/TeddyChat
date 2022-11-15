@@ -20,6 +20,7 @@ ServerWindow::ServerWindow(QWidget *parent)
 }
 ServerWindow::~ServerWindow() {
     saveSettings();
+    delete server;
     delete ui;
 }
 
@@ -83,6 +84,12 @@ void ServerWindow::on_actionDeploy_triggered()
         ui->actionNetwork->setDisabled(true);
     }
 }
+void ServerWindow::on_actionReload_triggered()
+{
+    ui->chatField->setTextColor(Qt::darkYellow);
+    ui->chatField->append(QTime::currentTime().toString() + " Reloading server...");
+    server->sendToClient(Commands::Restart);
+}
 void ServerWindow::on_actionStop_triggered()
 {
     statusBar()->showMessage("Server closing...", 2500);
@@ -118,12 +125,4 @@ void ServerWindow::slotDialogIPPortParams(QString ip,int port){
     server->port = port;
     ui->IPLabel->setText(ip);
     ui->portLabel->setText(QString::number(port));
-}
-
-void ServerWindow::on_actionKey_triggered()
-{
-    ui->chatField->setTextColor(Qt::darkYellow);
-    ui->chatField->append(QTime::currentTime().toString() + " Reloading server...");
-    ui->chatField->append(QTime::currentTime().toString() + " Generating new SSH Keys...");
-    server->sendToClient(Commands::Restart);
 }

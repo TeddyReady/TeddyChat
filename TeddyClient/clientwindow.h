@@ -97,5 +97,6 @@ private slots:
     void on_profileButton_clicked();
     void showContextMenu(QPoint);
     void slotInfoAbout();
+    void showContextMenuOnMessageField(QPoint);
     void on_actionOther_triggered();
 };

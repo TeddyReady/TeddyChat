@@ -36,9 +36,9 @@ public slots:
 private slots:
     //General
     void on_actionDeploy_triggered();
+    void on_actionReload_triggered();
     void on_actionStop_triggered();
     void on_actionExit_triggered();
     //Settings
     void on_actionNetwork_triggered();
-    void on_actionKey_triggered();
 };

@@ -100,7 +100,9 @@ void MyServer::sendToClient(int command, QString receiver, QString message, int 
         out << quint16(data.size() - sizeof(quint16));
         for(int i = 0; i < clients.size(); i++){
             clients[i]->socket->write(data);
-        }
+            emit clientDisconnected(clients[i]);
+        } clients.clear();
+
     } else if (command == Commands::DataChanged) {
         out << receiver;
         if (option == Status::Other)

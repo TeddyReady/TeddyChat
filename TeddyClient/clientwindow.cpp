@@ -46,6 +46,10 @@ ClientWindow::ClientWindow(QWidget *parent)
     ui->clientList->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(ui->clientList, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(showContextMenu(QPoint)));
 
+    //Контекстное меню на поле сообщений
+    ui->incomingField->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(ui->incomingField, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(showContextMenuOnMessageField(QPoint)));
+
     //Контекстное меню на кнопке
     btnMenu = new QMenu;
 
@@ -207,18 +211,12 @@ void ClientWindow::slotReadyRead()
         includedClients.push_back(ptr);
 
     } else if ((int)command == Commands::Restart) {
-        statusBar()->showMessage("Reconnecting...", 2500);
-        disconnect(client.socket, SIGNAL(readyRead()), this, SLOT(slotReadyRead()));
-        disconnect(client.socket, SIGNAL(connected()), this, SLOT(slotSocketConnected()));
-        disconnect(client.socket, SIGNAL(disconnected()), this, SLOT(slotSocketDisconnected()));
-        disconnect(client.socket, SIGNAL(encrypted()), this, SLOT(slotEncrypted()));
+        statusBar()->showMessage("Server reloading...", 2500);
+        ui->incomingField->setTextColor(Qt::darkRed);
+        ui->incomingField->append(client.username + " has been disconnected for reload server!");
         ui->incomingField->setTextColor(Qt::darkYellow);
-        ui->incomingField->append("Reloading server with new SSL keys...");
-        sendToServer(Commands::Exit);
+        ui->incomingField->append("Server has been reloaded!");
         client.socket->disconnectFromHost();
-        reConnection();
-        client.socket->setPeerVerifyMode(QSslSocket::VerifyNone);
-        client.socket->connectToHostEncrypted(client.ip, client.port);
 
     } else if ((int)command == Commands::DataChanged) {
         statusBar()->showMessage("Sending new data to server...", 2500);
@@ -287,7 +285,6 @@ void ClientWindow::slotEncrypted(){
 }
 
 void ClientWindow::reConnection(){
-    connect(client.socket, SIGNAL(readyRead()), this, SLOT(slotReadyRead()));
     connect(client.socket, SIGNAL(connected()), this, SLOT(slotSocketConnected()));
     connect(client.socket, SIGNAL(disconnected()), this, SLOT(slotSocketDisconnected()));
     connect(client.socket, SIGNAL(encrypted()), this, SLOT(slotEncrypted()));
@@ -321,7 +318,6 @@ void ClientWindow::slotSocketDisconnected()
     ui->disconnectAct->setDisabled(true);
     ui->quitAct->setEnabled(true);
     ui->sendButton->setDisabled(true);
-    ui->incomingField->clear();
     ui->ipPortAct->setEnabled(true);
     ui->clientList->clear();
 }
@@ -548,4 +544,15 @@ void ClientWindow::slotInfoAbout(){
             break;
         }
     }
+}
+
+void ClientWindow::showContextMenuOnMessageField(QPoint pos)
+{
+    QMenu *menu = new QMenu(this);
+    QAction *clearAct = new QAction("Clear");
+    connect(clearAct, &QAction::triggered, [this]() {
+            ui->incomingField->clear();
+        });
+    menu->addAction(clearAct);
+    menu->popup(ui->incomingField->viewport()->mapToGlobal(pos));
 }
