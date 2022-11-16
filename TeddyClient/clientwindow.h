@@ -4,6 +4,7 @@
 #include <QMainWindow>
 #include <QSslSocket>
 #include <QSettings>
+#include <QBuffer>
 #include <QVector>
 #include <QSound>
 #include <QTime>
@@ -14,6 +15,7 @@
 #include "dialogaboutautor.h"
 #include "dialogusername.h"
 #include "dialogipport.h"
+#include "dialogimage.h"
 #include "dialogexit.h"
 #include "dialogxml.h"
 #include "cipher.h"
@@ -92,6 +94,7 @@ private slots:
     void showContextMenu(QPoint);
     void slotInfoAbout();
     void showContextMenuOnMessageField(QPoint);
+    void slotSaveImage(QString, const QPixmap *);
     void showContextMenuOnSendButton(QPoint);
     void slotSendPicture();
 };

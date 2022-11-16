@@ -9,7 +9,7 @@ enum Commands {
     SendMessage, Authentication, Exit, 
         UpdateDataBase, NewClient,
     DataChanged, Restart, Image,
-        ForceQuit
+        ForceQuit, PathChanged
 };
 
 class MyClient {

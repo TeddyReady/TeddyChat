@@ -109,9 +109,9 @@ void ClientWindow::sendToServer(int command, QString message, int option)
         out << client.username;
     } else if (command == Commands::DataChanged) {
         out << client.username;
-        if (option == Status::Other) {
+        if (option == Status::Other || option == Commands::PathChanged) {
             out << QString::number(option);
-        } out << message;
+        }  out << message;
     } else if (command == Commands::Image) {
         out << client.username << message;
     }
@@ -151,7 +151,7 @@ void ClientWindow::slotReadyRead()
         //Добавляем данные для XML
         xmlData.push_back(date);
         xmlData.push_back(time);
-        xmlData.push_back("127.0.0.1");
+        xmlData.push_back(client.ip);
         xmlData.push_back(name);
         xmlData.push_back(message);
 
@@ -260,6 +260,29 @@ void ClientWindow::slotReadyRead()
                     }
                 }
             }
+        } else if (message == QString::number(Commands::PathChanged)) {
+            QString path; in >> path;
+            if (name == client.username) {
+                QListWidgetItem *item = new QListWidgetItem("Server: Your avatar has been updated!", ui->chatList);
+                item->setForeground(Qt::cyan);
+                ui->chatList->addItem(item);
+            } else {
+                for (MyClient *ptr: includedClients) {
+                    if (ptr->username == name) {
+                        ptr->path = path;
+                        for(int i = 0; i < includedClients.size(); i++){
+                            if(name == ui->clientList->item(i)->text()){
+                                ui->clientList->item(i)->setIcon(QIcon(path));
+                                break;
+                            }
+                        }
+                        QListWidgetItem *item = new QListWidgetItem("Server: " + name + " avatar has been updated!", ui->chatList);
+                        item->setForeground(Qt::darkCyan);
+                        ui->chatList->addItem(item);
+                        break;
+                    }
+                }
+            }
         } else {
             if (name == client.username) {
                 client.username = message;
@@ -285,22 +308,38 @@ void ClientWindow::slotReadyRead()
             }
         }
     } else if (static_cast<int>(command) == Commands::Image) {
-        QString name, message;
-        in >> name >> message;
+        QString name, message, date, time;
+        in >> name >> message >> date >> time;
         QPixmap image;
         image.load(message);
         if(name == client.username) {
-            QListWidgetItem *item = new QListWidgetItem(QIcon(image), "You: ", ui->chatList);
+            QListWidgetItem *item = new QListWidgetItem("You send image:", ui->chatList);
             item->setForeground(Qt::black);
+            ui->chatList->addItem(item);
+            item = new QListWidgetItem(QIcon(image), "", ui->chatList);
             ui->chatList->addItem(item);
         } else {
             if (client.status != Status::NotDisturb){
                 QSound::play("/home/kataich75/qtprojects/TECH/TeddyClient/other/newmessage.wav");
             }
-            QListWidgetItem *item = new QListWidgetItem(QIcon(image), name + ": ", ui->chatList);
+            QListWidgetItem *item = new QListWidgetItem(name + " send image:", ui->chatList);
             item->setForeground(Qt::blue);
             ui->chatList->addItem(item);
+            item = new QListWidgetItem(QIcon(image), "", ui->chatList);
+            ui->chatList->addItem(item);
         }
+        //Конвертация в Base64
+        QImage img(QIcon(image).pixmap(20, 20).toImage());
+        QByteArray byteArray;
+        QBuffer buffer(&byteArray);
+        img.save(&buffer, "PNG");
+        QString base64 = QString::fromLatin1(byteArray.toBase64().data());
+        //Добавляем данные для XML
+        xmlData.push_back(date);
+        xmlData.push_back(time);
+        xmlData.push_back(client.ip);
+        xmlData.push_back(name);
+        xmlData.push_back(base64);
     } else if (static_cast<int>(command) == Commands::ForceQuit) {
         QListWidgetItem *item = new QListWidgetItem("Validation failed, your name already used!", ui->chatList);
         item->setForeground(Qt::darkYellow);
@@ -412,7 +451,7 @@ void ClientWindow::on_quitAct_triggered()
     connect(window, SIGNAL(closeApplication()), this, SLOT(slotCloseApplication()));
 }
 void ClientWindow::slotCloseApplication(){
-    if (isConnected){
+    if (isConnected) {
         ui->disconnectAct->triggered();
         client.socket->waitForReadyRead();
     }
@@ -437,8 +476,12 @@ void ClientWindow::slotDialogIPPortParams(QString ip, int port)
 
 void ClientWindow::on_actionAvatar_triggered()
 {
-    client.path = QFileDialog::getOpenFileName(0, QObject::tr("Select photo"),
+    QString path = QFileDialog::getOpenFileName(0, QObject::tr("Select photo"),
         "/home/kataich75/qtprojects/TECH/TeddyClient/other/", QObject::tr("Image files (*.png)"));
+    if (path != "") {
+        client.path = path;
+        if (isConnected) sendToServer(Commands::DataChanged, path, Commands::PathChanged);
+    }
 }
 
 void ClientWindow::on_nameAct_triggered()
@@ -500,6 +543,7 @@ void ClientWindow::on_actionDoNotDisturb_triggered()
 
 void ClientWindow::on_actionOther_triggered()
 {
+    ui->actionOther->setChecked(true);
     statusBar()->showMessage("Creating your status...", 2500);
     DialogOtherStatus *window = new DialogOtherStatus(this, client.statusName);
     window->setWindowTitle("Create your status");
@@ -573,13 +617,32 @@ void ClientWindow::slotInfoAbout(){
 
 void ClientWindow::showContextMenuOnMessageField(QPoint pos)
 {
-    QMenu *menu = new QMenu(this);
-    QAction *clearAct = new QAction("Clear");
-    connect(clearAct, &QAction::triggered, [this]() {
-            ui->chatList->clear();
-        });
-    menu->addAction(clearAct);
-    menu->popup(ui->chatList->viewport()->mapToGlobal(pos));
+    if (ui->chatList->count()) {
+        QMenu *menu = new QMenu(this);
+        QAction *clearAct = new QAction("Clear");
+        QAction *showAct = new QAction("Show full-size image");
+        connect(clearAct, &QAction::triggered, [this]() {
+                ui->chatList->clear();
+            });
+        connect(showAct, &QAction::triggered, [this]() {
+                if (ui->chatList->currentItem()->text() == "") {
+                    DialogImage *window = new DialogImage(this, ui->chatList->currentItem()->icon().
+                        pixmap(ui->chatList->currentItem()->icon().actualSize(QSize(1920, 1080))));
+                    window->setWindowTitle("About image");
+                    window->show();
+                    connect(window, SIGNAL(saveImage(QString, const QPixmap *)), this, SLOT(slotSaveImage(QString, const QPixmap*)));
+                }
+            });
+        menu->addAction(clearAct);
+        menu->addAction(showAct);
+        menu->popup(ui->chatList->viewport()->mapToGlobal(pos));
+    }
+}
+void ClientWindow::slotSaveImage(QString path, const QPixmap *image){
+    file.setFileName(path);
+    file.open(QIODevice::WriteOnly);
+    image->save(&file, "PNG");
+    file.close();
 }
 
 void ClientWindow::showContextMenuOnSendButton(QPoint pos)
@@ -594,5 +657,5 @@ void ClientWindow::showContextMenuOnSendButton(QPoint pos)
 void ClientWindow::slotSendPicture(){
     QString path = QFileDialog::getOpenFileName(0, QObject::tr("Select sending image"),
                    "/home/kataich75/qtprojects/TECH/TeddyClient/other/", QObject::tr("Image files (*.png)"));
-    sendToServer(Commands::Image, path);
+    if (path != "") sendToServer(Commands::Image, path);
 }

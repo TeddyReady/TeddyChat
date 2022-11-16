@@ -29,8 +29,9 @@ void DialogXML::on_hideOption_stateChanged(int arg)
 void DialogXML::on_saveBtn_clicked()
 {
     QString path = QFileDialog::getSaveFileName(0, QObject::tr("Select saving path"),
-                   QDir::homePath() + "/" + ui->fileLine->text().trimmed() + ".xml", QObject::tr("XML files (*.xml)"));
+                   "/home/kataich75/qtprojects/TECH/Examples/" + ui->fileLine->text().trimmed() + ".xml", QObject::tr("XML files (*.xml)"));
     quint64 pass = (quint64)ui->passLine->text().toInt();
-    emit savePath(path, pass);
+    if (path != "")
+        emit savePath(path, pass);
     this->close();
 }

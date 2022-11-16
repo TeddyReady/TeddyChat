@@ -108,7 +108,7 @@ void MyServer::sendToClient(int command, QString receiver, QString message, int 
 
     } else if (command == Commands::DataChanged) {
         out << receiver;
-        if (option == Status::Other)
+        if (option == Status::Other || option == Commands::PathChanged)
             out << QString::number(option);
         out << message;
         out.device()->seek(0);
@@ -117,7 +117,9 @@ void MyServer::sendToClient(int command, QString receiver, QString message, int 
             clients[i]->socket->write(data);
         }
     } else if (command == Commands::Image) {
-        out << receiver << message;
+        out << receiver << message
+            << QDate::currentDate().toString()
+            << QTime::currentTime().toString();
         out.device()->seek(0);
         out << quint16(data.size() - sizeof(quint16));
         for(int i = 0; i < clients.size(); i++){
@@ -197,6 +199,14 @@ void MyServer::slotReadyRead(){
                     break;
                 }
             } sendToClient(Commands::DataChanged, name, customStatus, Status::Other);
+        } else if (newData == QString::number(Commands::PathChanged)) {
+            QString path; in >> path;
+            for (MyClient *ptr: clients){
+                if (ptr->username == name) {
+                    ptr->path = path;
+                    break;
+                }
+            } sendToClient(Commands::DataChanged, name, path, Commands::PathChanged);
         } else {
             for (MyClient *ptr: clients){
                 if (ptr->username == name) {

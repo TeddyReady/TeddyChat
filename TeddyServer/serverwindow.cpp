@@ -67,7 +67,7 @@ void ServerWindow::slotClientDisconnected(MyClient *client) {
     ui->chatField->append(client->time + " " + client->username + " has been disconnected!");
     ui->cntUsers->setText(QString::number(server->clients.size() - 1));
     //Removing client from UI
-    for(int i = server->clients.size() - 1; i >= 0; i--){
+    for(int i = 0; i < server->clients.size(); i++){
         if(client->username == ui->clientList->item(i)->text()){
             QListWidgetItem *it = ui->clientList->takeItem(i);
             delete it;
