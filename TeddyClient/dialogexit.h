@@ -15,4 +15,6 @@ private slots:
     void on_buttonBox_rejected();
 private:
     Ui::DialogExit *ui;
+signals:
+    void closeApplication();
 };

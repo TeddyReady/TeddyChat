@@ -15,8 +15,8 @@ DialogExit::~DialogExit()
 
 void DialogExit::on_buttonBox_accepted()
 {
+    emit closeApplication();
     this->close();
-    qApp->exit();
 }
 
 void DialogExit::on_buttonBox_rejected()

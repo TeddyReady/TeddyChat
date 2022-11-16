@@ -24,6 +24,10 @@ DialogAboutClient::DialogAboutClient(QWidget *parent, MyClient client) :
     ui->dataLabel->setText(client.date);
     ui->labelIn->setText("in");
     ui->timeLabel->setText(client.time);
+    QPixmap avatar;
+    avatar.load(client.path);
+    avatar.scaled(QSize(320, 240));
+    ui->picture->setPixmap(avatar);
 }
 
 DialogAboutClient::~DialogAboutClient()

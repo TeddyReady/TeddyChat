@@ -12,8 +12,10 @@ ServerWindow::ServerWindow(QWidget *parent)
 
     connect(server, SIGNAL(serverStarted(bool)), this, SLOT(slotServerStatus(bool)));
     connect(server, SIGNAL(newConnection(MyClient *)), this, SLOT(slotNewConnection(MyClient *)));
+    connect(server, SIGNAL(failedValidation()), this, SLOT(slotFailedValidation()));
     connect(server, SIGNAL(clientDisconnected(MyClient *)), this, SLOT(slotClientDisconnected(MyClient *)));
     connect(server, SIGNAL(reNameOnUI(QString, QString)), this, SLOT(slotReNameOnUI(QString, QString)));
+    ui->actionReload->setDisabled(true);
     ui->actionStop->setDisabled(true);
     ui->IPLabel->setText(server->ip);
     ui->portLabel->setText(QString::number(server->port));
@@ -22,6 +24,12 @@ ServerWindow::~ServerWindow() {
     saveSettings();
     delete server;
     delete ui;
+}
+
+void ServerWindow::closeEvent(QCloseEvent *event)
+{
+    event->ignore();
+    ui->actionExit->triggered();
 }
 
 void ServerWindow::uploadSettings(){
@@ -46,16 +54,20 @@ void ServerWindow::slotServerStatus(bool online){
 }
 void ServerWindow::slotNewConnection(MyClient *client) {
     ui->chatField->setTextColor(Qt::darkGreen);
-    ui->chatField->append(client->time + " " + client->username + " has been connected");
+    ui->chatField->append(client->time + " " + client->username + " has been connected!");
     ui->cntUsers->setText(QString::number(server->clients.size()));
     ui->clientList->addItem(client->username);
 }
+void ServerWindow::slotFailedValidation(){
+    ui->chatField->setTextColor(Qt::darkYellow);
+    ui->chatField->append(QTime::currentTime().toString() + " new client has been failed validation!");
+}
 void ServerWindow::slotClientDisconnected(MyClient *client) {
     ui->chatField->setTextColor(Qt::darkRed);
-    ui->chatField->append(client->time + " " + client->username + " has been disconnected");
+    ui->chatField->append(client->time + " " + client->username + " has been disconnected!");
     ui->cntUsers->setText(QString::number(server->clients.size() - 1));
     //Removing client from UI
-    for(int i = 0; i < server->clients.size(); i++){
+    for(int i = server->clients.size() - 1; i >= 0; i--){
         if(client->username == ui->clientList->item(i)->text()){
             QListWidgetItem *it = ui->clientList->takeItem(i);
             delete it;
@@ -79,6 +91,7 @@ void ServerWindow::on_actionDeploy_triggered()
     server->deployServer();
     if(server->isListening()){
         ui->actionDeploy->setDisabled(true);
+        ui->actionReload->setEnabled(true);
         ui->actionStop->setEnabled(true);
         ui->actionExit->setDisabled(true);
         ui->actionNetwork->setDisabled(true);
@@ -98,6 +111,7 @@ void ServerWindow::on_actionStop_triggered()
         server->sendToClient(Commands::Exit, "Server", "Server close this session!");
     }
     ui->actionDeploy->setEnabled(true);
+    ui->actionReload->setDisabled(true);
     ui->actionStop->setDisabled(true);
     ui->actionExit->setEnabled(true);
     ui->actionNetwork->setEnabled(true);
@@ -110,8 +124,14 @@ void ServerWindow::on_actionExit_triggered()
     DialogExit *window = new DialogExit(this);
     window->setWindowTitle("Quiting app");
     window->show();
+    connect(window, SIGNAL(closeApplication()), this, SLOT(slotCloseApplication()));
 }
 
+void ServerWindow::slotCloseApplication(){
+    if (server->clients.size()){
+        ui->actionReload->triggered();
+    } qApp->exit();
+}
 //Settings
 void ServerWindow::on_actionNetwork_triggered()
 {

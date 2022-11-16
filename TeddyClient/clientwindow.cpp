@@ -10,11 +10,15 @@ ClientWindow::ClientWindow(QWidget *parent)
     settings = new QSettings("/home/kataich75/qtprojects/TECH/TeddyClient/other/settings.ini", QSettings::IniFormat, this);
     uploadSettings();
 
+    ui->chatList->setIconSize(QSize(320, 240));
+    ui->clientList->setIconSize(QSize(60, 40));
+
     ui->disconnectAct->setDisabled(true);
     ui->sendButton->setDisabled(true);
     ui->saveHistoryAct->setDisabled(true);
     ui->labelIP->setText(client.ip);
     ui->labelPort->setText(QString::number(client.port));
+    ui->actionOther->setText(client.statusName);
     switch(client.status){
     case Status::Online:
         ui->labelStatus->setText("Online");
@@ -41,31 +45,19 @@ ClientWindow::ClientWindow(QWidget *parent)
     connect(client.socket, SIGNAL(encrypted()), this, SLOT(slotEncrypted()));
     setWindowTitle(client.username);
     dataSize = 0;
+    isConnected = false;
 
     //Контекстное меню списка клиентов
     ui->clientList->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(ui->clientList, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(showContextMenu(QPoint)));
 
     //Контекстное меню на поле сообщений
-    ui->incomingField->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(ui->incomingField, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(showContextMenuOnMessageField(QPoint)));
+    ui->chatList->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(ui->chatList, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(showContextMenuOnMessageField(QPoint)));
 
     //Контекстное меню на кнопке
-    btnMenu = new QMenu;
-
-    sendMsg = new QAction("..message");
-    sendMsg->setCheckable(true);
-    sendMsg->setChecked(true);
-    connect(sendMsg, SIGNAL(triggered(bool)), this, SLOT(slotSendMessage(bool)));
-
-    sendPic = new QAction("..image");
-    sendPic->setCheckable(true);
-    sendPic->setDisabled(true);
-    sendPic->setChecked(false);
-    connect(sendPic, SIGNAL(triggered(bool)), this, SLOT(slotSendPicture(bool)));
-
-    btnMenu->addAction(sendMsg);
-    btnMenu->addAction(sendPic);
+    ui->sendButton->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(ui->sendButton, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(showContextMenuOnSendButton(QPoint)));
 }
 
 ClientWindow::~ClientWindow()
@@ -76,12 +68,19 @@ ClientWindow::~ClientWindow()
     delete ui;
 }
 
+void ClientWindow::closeEvent(QCloseEvent *event)
+{
+    event->ignore();
+    ui->quitAct->triggered();
+}
+
 void ClientWindow::uploadSettings(){
     client.ip = settings->value("ip", "127.0.0.1").toString();
     client.port = settings->value("port", "45678").toInt();
     client.username = settings->value("username", "Unknown User").toString();
     client.status = settings->value("status", Status::Online).toInt();
-    ui->actionOther->setText(settings->value("customStatus", "Working on Lab").toString());
+    client.statusName = settings->value("customStatus", "Working on Lab").toString();
+    client.path = settings->value("avatarPath", ":/new/prefix1/other/client.png").toString();
     setGeometry(settings->value("geometry", QRect(200, 200, 530, 388)).toRect());
 }
 void ClientWindow::saveSettings(){
@@ -90,13 +89,8 @@ void ClientWindow::saveSettings(){
     settings->setValue("username", client.username);
     settings->setValue("status", client.status);
     settings->setValue("customStatus", client.statusName);
+    settings->setValue("avatarPath", client.path);
     settings->setValue("geometry", geometry());
-}
-
-void ClientWindow::mousePressEvent(QMouseEvent *event){
-    if(event->button() == Qt::RightButton)
-        ui->sendButton->setMenu(btnMenu);
-    else ui->sendButton->setMenu(NULL);
 }
 
 void ClientWindow::sendToServer(int command, QString message, int option)
@@ -110,15 +104,16 @@ void ClientWindow::sendToServer(int command, QString message, int option)
     } else if (command == Commands::Authentication) {
         out << client.ip << QString::number(client.port)
             << client.username << QString::number(client.status)
-            << client.date << client.time;
+            << client.date << client.time << client.path << client.statusName;
     } else if (command == Commands::Exit) {
         out << client.username;
     } else if (command == Commands::DataChanged) {
         out << client.username;
         if (option == Status::Other) {
             out << QString::number(option);
-        }
-        out << message;
+        } out << message;
+    } else if (command == Commands::Image) {
+        out << client.username << message;
     }
     out.device()->seek(0);
     out << (quint16)(data.size() - sizeof(quint16));
@@ -138,19 +133,20 @@ void ClientWindow::slotReadyRead()
     //END
     quint8 command;
     in >> command;
-
-    if((int)command == Commands::SendMessage) {
+    if(static_cast<int>(command) == Commands::SendMessage) {
         QString name, message, date, time;
         in >> name >> message >> date >> time;
-        if(name == client.username) {            
-            ui->incomingField->setTextColor(Qt::black);
-            ui->incomingField->append("You: " + message);
+        if(name == client.username) {
+            QListWidgetItem *item = new QListWidgetItem("You: " + message, ui->chatList);
+            item->setForeground(Qt::black);
+            ui->chatList->addItem(item);
         } else {
             if (client.status != Status::NotDisturb){
                 QSound::play("/home/kataich75/qtprojects/TECH/TeddyClient/other/newmessage.wav");
             }
-            ui->incomingField->setTextColor(Qt::blue);
-            ui->incomingField->append(name + ": " + message);
+            QListWidgetItem *item = new QListWidgetItem(name + ": " + message, ui->chatList);
+            item->setForeground(Qt::blue);
+            ui->chatList->addItem(item);
         }
         //Добавляем данные для XML
         xmlData.push_back(date);
@@ -159,29 +155,32 @@ void ClientWindow::slotReadyRead()
         xmlData.push_back(name);
         xmlData.push_back(message);
 
-    } else if ((int)command == Commands::Authentication) {
+    } else if (static_cast<int>(command) == Commands::Authentication) {
         QString name, message;
         in >> name >> message;
         if(name == client.username) {
-            ui->incomingField->setTextColor(Qt::darkGreen);
-            ui->incomingField->append(message);
+            QListWidgetItem *item = new QListWidgetItem(message, ui->chatList);
+            item->setForeground(Qt::darkGreen);
+            ui->chatList->addItem(item);
             ui->saveHistoryAct->setEnabled(true);
             sendToServer(Commands::UpdateDataBase);
         } else {
-            ui->incomingField->setTextColor(Qt::green);
-            ui->incomingField->append(message);
+            QListWidgetItem *item = new QListWidgetItem(message, ui->chatList);
+            item->setForeground(Qt::green);
+            ui->chatList->addItem(item);
         }
 
-    } else if ((int)command == Commands::Exit) {
+    } else if (static_cast<int>(command) == Commands::Exit) {
         QString name, message;
         in >> name >> message;
         if (name == "Server"){
-            ui->clientList->clear();
-            ui->incomingField->setTextColor(Qt::darkRed);
-            ui->incomingField->append(message);
+            QListWidgetItem *item = new QListWidgetItem(message, ui->chatList);
+            item->setForeground(Qt::darkRed);
+            ui->chatList->addItem(item);
         } else if(name != client.username){
-            ui->incomingField->setTextColor(Qt::darkRed);
-            ui->incomingField->append(message);
+            QListWidgetItem *item = new QListWidgetItem(message, ui->chatList);
+            item->setForeground(Qt::darkRed);
+            ui->chatList->addItem(item);
             for(int i = 0; i < includedClients.size(); i++){
                 if(name == ui->clientList->item(i)->text()){
                     includedClients.removeAt(i);
@@ -192,47 +191,53 @@ void ClientWindow::slotReadyRead()
             }
         }
 
-    } else if ((int)command == Commands::UpdateDataBase) {
+    } else if (static_cast<int>(command) == Commands::UpdateDataBase) {
         quint8 countOfClients;
         in >> countOfClients;
         for (int i = 0; i < (int)countOfClients; i++) {
-            QString name, status, date, time;
-            in >> name >> status >> date >> time;
-            ui->clientList->addItem(name);
-            MyClient *ptr = new MyClient("127.0.0.1", 45678, name, status.toInt(), date, time, nullptr);
+            QString name, status, date, time, path, customStatus;
+            in >> name >> status >> date >> time >> path >> customStatus;
+            MyClient *ptr = new MyClient("127.0.0.1", 45678, name, status.toInt(), date, time, nullptr, path, customStatus);
             includedClients.push_back(ptr);
+            QListWidgetItem *item = new QListWidgetItem(QIcon(path), name, ui->clientList);
+            ui->clientList->addItem(item);
         }
 
-    } else if ((int)command == Commands::NewClient) {
-        QString name, status, date, time;
-        in >> name >> status >> date >> time;
-        ui->clientList->addItem(name);
-        MyClient *ptr = new MyClient("127.0.0.1", 45678, name, status.toInt(), date, time, nullptr);
+    } else if (static_cast<int>(command) == Commands::NewClient) {
+        QString name, status, date, time, path, customStatus;
+        in >> name >> status >> date >> time >> path >> customStatus;
+        MyClient *ptr = new MyClient("127.0.0.1", 45678, name, status.toInt(), date, time, nullptr, path, customStatus);
         includedClients.push_back(ptr);
+        QListWidgetItem *item = new QListWidgetItem(QIcon(path), name, ui->clientList);
+        ui->clientList->addItem(item);
 
-    } else if ((int)command == Commands::Restart) {
+    } else if (static_cast<int>(command) == Commands::Restart) {
         statusBar()->showMessage("Server reloading...", 2500);
-        ui->incomingField->setTextColor(Qt::darkRed);
-        ui->incomingField->append(client.username + " has been disconnected for reload server!");
-        ui->incomingField->setTextColor(Qt::darkYellow);
-        ui->incomingField->append("Server has been reloaded!");
+        QListWidgetItem *item = new QListWidgetItem(client.username + " has been disconnected for reload server!", ui->chatList);
+        item->setForeground(Qt::darkRed);
+        ui->chatList->addItem(item);
+        item->setForeground(Qt::darkYellow);
+        item->setText("Server has been reloaded!");
+        ui->chatList->addItem(item);
         client.socket->disconnectFromHost();
 
-    } else if ((int)command == Commands::DataChanged) {
+    } else if (static_cast<int>(command) == Commands::DataChanged) {
         statusBar()->showMessage("Sending new data to server...", 2500);
         QString name, message; in >> name >> message;
         if (message == QString::number(Status::Online) ||
         message == QString::number(Status::NotInPlace) ||
         message == QString::number(Status::NotDisturb)) {
             if (name == client.username) {
-                ui->incomingField->setTextColor(Qt::cyan);
-                ui->incomingField->append("Server: Your status has been updated!");
+                QListWidgetItem *item = new QListWidgetItem("Server: Your status has been updated!", ui->chatList);
+                item->setForeground(Qt::cyan);
+                ui->chatList->addItem(item);
             } else {
                 for (MyClient *ptr: includedClients) {
                     if (ptr->username == name) {
                         ptr->status = message.toInt();
-                        ui->incomingField->setTextColor(Qt::darkCyan);
-                        ui->incomingField->append("Server: " + name + " status has been updated!");
+                        QListWidgetItem *item = new QListWidgetItem("Server: " + name + " status has been updated!", ui->chatList);
+                        item->setForeground(Qt::darkCyan);
+                        ui->chatList->addItem(item);
                         break;
                     }
                 }
@@ -240,15 +245,17 @@ void ClientWindow::slotReadyRead()
         } else if (message == QString::number(Status::Other)) {
             QString customStatus; in >> customStatus;
             if (name == client.username) {
-                ui->incomingField->setTextColor(Qt::cyan);
-                ui->incomingField->append("Server: Your status has been updated for " + customStatus + "!");
+                QListWidgetItem *item = new QListWidgetItem("Server: Your status has been updated for " + customStatus + "!", ui->chatList);
+                item->setForeground(Qt::cyan);
+                ui->chatList->addItem(item);
             } else {
                 for (MyClient *ptr: includedClients) {
                     if (ptr->username == name) {
                         ptr->status = message.toInt();
                         ptr->statusName = customStatus;
-                        ui->incomingField->setTextColor(Qt::darkCyan);
-                        ui->incomingField->append("Server: " + name + " status has been updated for " + customStatus + "!");
+                        QListWidgetItem *item = new QListWidgetItem("Server: " + name + " status has been updated for " + customStatus + "!", ui->chatList);
+                        item->setForeground(Qt::darkCyan);
+                        ui->chatList->addItem(item);
                         break;
                     }
                 }
@@ -256,8 +263,9 @@ void ClientWindow::slotReadyRead()
         } else {
             if (name == client.username) {
                 client.username = message;
-                ui->incomingField->setTextColor(Qt::cyan);
-                ui->incomingField->append("Server: Your name has been updated for " + message + "!");
+                QListWidgetItem *item = new QListWidgetItem("Server: Your name has been updated for " + message + "!", ui->chatList);
+                item->setForeground(Qt::cyan);
+                ui->chatList->addItem(item);
             } else {
                 for (MyClient *ptr: includedClients) {
                     if (ptr->username == name) {
@@ -268,26 +276,45 @@ void ClientWindow::slotReadyRead()
                                 break;
                             }
                         }
-                        ui->incomingField->setTextColor(Qt::darkCyan);
-                        ui->incomingField->append("Server: " + name + " name has been updated for " + message + "!");
+                        QListWidgetItem *item = new QListWidgetItem("Server: " + name + " name has been updated for " + message + "!", ui->chatList);
+                        item->setForeground(Qt::darkCyan);
+                        ui->chatList->addItem(item);
                         break;
                     }
                 }
             }
         }
+    } else if (static_cast<int>(command) == Commands::Image) {
+        QString name, message;
+        in >> name >> message;
+        QPixmap image;
+        image.load(message);
+        if(name == client.username) {
+            QListWidgetItem *item = new QListWidgetItem(QIcon(image), "You: ", ui->chatList);
+            item->setForeground(Qt::black);
+            ui->chatList->addItem(item);
+        } else {
+            if (client.status != Status::NotDisturb){
+                QSound::play("/home/kataich75/qtprojects/TECH/TeddyClient/other/newmessage.wav");
+            }
+            QListWidgetItem *item = new QListWidgetItem(QIcon(image), name + ": ", ui->chatList);
+            item->setForeground(Qt::blue);
+            ui->chatList->addItem(item);
+        }
+    } else if (static_cast<int>(command) == Commands::ForceQuit) {
+        QListWidgetItem *item = new QListWidgetItem("Validation failed, your name already used!", ui->chatList);
+        item->setForeground(Qt::darkYellow);
+        ui->chatList->addItem(item);
+        isConnected = false;
+        client.socket->disconnectFromHost();
     }
 }
 
 void ClientWindow::slotEncrypted(){
+    isConnected = true;
     client.date = QDate::currentDate().toString();
     client.time = QTime::currentTime().toString();
     sendToServer(Commands::Authentication);
-}
-
-void ClientWindow::reConnection(){
-    connect(client.socket, SIGNAL(connected()), this, SLOT(slotSocketConnected()));
-    connect(client.socket, SIGNAL(disconnected()), this, SLOT(slotSocketDisconnected()));
-    connect(client.socket, SIGNAL(encrypted()), this, SLOT(slotEncrypted()));
 }
 
 //Меню "General"
@@ -308,6 +335,7 @@ void ClientWindow::slotSocketConnected()
 
 void ClientWindow::on_disconnectAct_triggered()
 {
+    isConnected = false;
     statusBar()->showMessage("Disconnect from server...", 2500);
     sendToServer(Commands::Exit);
     client.socket->disconnectFromHost();
@@ -320,6 +348,9 @@ void ClientWindow::slotSocketDisconnected()
     ui->sendButton->setDisabled(true);
     ui->ipPortAct->setEnabled(true);
     ui->clientList->clear();
+    QListWidgetItem *item = new QListWidgetItem("You has been disconnected from server!", ui->chatList);
+    item->setForeground(Qt::red);
+    ui->chatList->addItem(item);
 }
 
 void ClientWindow::on_saveHistoryAct_triggered()
@@ -378,8 +409,15 @@ void ClientWindow::on_quitAct_triggered()
     DialogExit *window = new DialogExit(this);
     window->setWindowTitle("Quiting app");
     window->show();
+    connect(window, SIGNAL(closeApplication()), this, SLOT(slotCloseApplication()));
 }
-
+void ClientWindow::slotCloseApplication(){
+    if (isConnected){
+        ui->disconnectAct->triggered();
+        client.socket->waitForReadyRead();
+    }
+    qApp->exit();
+}
 //Меню "Settings"
 void ClientWindow::on_ipPortAct_triggered()
 {
@@ -397,6 +435,12 @@ void ClientWindow::slotDialogIPPortParams(QString ip, int port)
     ui->labelPort->setText(QString::number(port));
 }
 
+void ClientWindow::on_actionAvatar_triggered()
+{
+    client.path = QFileDialog::getOpenFileName(0, QObject::tr("Select photo"),
+        "/home/kataich75/qtprojects/TECH/TeddyClient/other/", QObject::tr("Image files (*.png)"));
+}
+
 void ClientWindow::on_nameAct_triggered()
 {
     statusBar()->showMessage("Changing your name...", 2500);
@@ -408,8 +452,9 @@ void ClientWindow::on_nameAct_triggered()
 void ClientWindow::slotDialogUserNameParams(QString username)
 {
     setWindowTitle(username);
-    if (client.socket->isEncrypted())
+    if (isConnected){
         sendToServer(Commands::DataChanged, username);
+    }
     else client.username = username;
 }
 
@@ -422,7 +467,7 @@ void ClientWindow::on_actionOnline_triggered()
         ui->actionOther->setChecked(false);
         client.status = Status::Online;
         ui->labelStatus->setText("Online");
-        if (client.socket->isEncrypted())
+        if (isConnected)
             sendToServer(Commands::DataChanged, QString::number(Status::Online));
     } else ui->actionOnline->setChecked(true);
 }
@@ -435,7 +480,7 @@ void ClientWindow::on_actionNotInPlace_triggered()
         ui->actionOther->setChecked(false);
         client.status = Status::NotInPlace;
         ui->labelStatus->setText("Not In Place");
-        if (client.socket->isEncrypted())
+        if (isConnected)
             sendToServer(Commands::DataChanged, QString::number(Status::NotInPlace));
     } else ui->actionNotInPlace->setChecked(true);
 }
@@ -448,7 +493,7 @@ void ClientWindow::on_actionDoNotDisturb_triggered()
         ui->actionOther->setChecked(false);
         client.status = Status::NotDisturb;
         ui->labelStatus->setText("Do Not Disturb");
-        if (client.socket->isEncrypted())
+        if (isConnected)
             sendToServer(Commands::DataChanged, QString::number(Status::NotDisturb));
     } else ui->actionDoNotDisturb->setChecked(true);
 }
@@ -456,7 +501,7 @@ void ClientWindow::on_actionDoNotDisturb_triggered()
 void ClientWindow::on_actionOther_triggered()
 {
     statusBar()->showMessage("Creating your status...", 2500);
-    DialogOtherStatus *window = new DialogOtherStatus(this);
+    DialogOtherStatus *window = new DialogOtherStatus(this, client.statusName);
     window->setWindowTitle("Create your status");
     window->show();
     connect(window, SIGNAL(dialogOtherStatusParams(QString)), this, SLOT(slotDialogOtherStatusParams(QString)));
@@ -471,7 +516,7 @@ void ClientWindow::slotDialogOtherStatusParams(QString customStatus){
     client.statusName = customStatus;
     ui->labelStatus->setText(customStatus);
     ui->actionOther->setText(customStatus);
-    if (client.socket->isEncrypted())
+    if (isConnected)
         sendToServer(Commands::DataChanged, customStatus, Status::Other);
 }
 //Меню "Help"
@@ -491,37 +536,17 @@ void ClientWindow::on_profileButton_clicked()
     window->show();
 }
 
-void ClientWindow::slotSendMessage(bool)
-{
-    statusBar()->showMessage("Selected option: message", 2500);
-    if(sendMsg->isChecked()){
-        sendMsg->setChecked(true);
-        sendPic->setChecked(false);
-    } else sendMsg->setChecked(false);
-}
-void ClientWindow::slotSendPicture(bool) {
-    statusBar()->showMessage("Selected option: picture", 2500);
-    if(sendPic->isChecked()){
-        sendPic->setChecked(false);
-        sendMsg->setChecked(false);
-    } else sendPic->setChecked(true);
-}
-
 void ClientWindow::on_sendButton_clicked()
 {
     statusBar()->showMessage("Sending message...", 2500);
-    if (sendMsg->isChecked()){
-        sendToServer(Commands::SendMessage, ui->messageField->text());
-        ui->messageField->clear();
-    }
+    sendToServer(Commands::SendMessage, ui->messageField->text());
+    ui->messageField->clear();
 }
 void ClientWindow::on_messageField_returnPressed()
 {
     statusBar()->showMessage("Sending message...", 2500);
-    if (sendMsg->isChecked()){
-        sendToServer(Commands::SendMessage, ui->messageField->text());
-        ui->messageField->clear();
-    }
+    sendToServer(Commands::SendMessage, ui->messageField->text());
+    ui->messageField->clear();
 }
 
 //UI ClientList
@@ -551,8 +576,23 @@ void ClientWindow::showContextMenuOnMessageField(QPoint pos)
     QMenu *menu = new QMenu(this);
     QAction *clearAct = new QAction("Clear");
     connect(clearAct, &QAction::triggered, [this]() {
-            ui->incomingField->clear();
+            ui->chatList->clear();
         });
     menu->addAction(clearAct);
-    menu->popup(ui->incomingField->viewport()->mapToGlobal(pos));
+    menu->popup(ui->chatList->viewport()->mapToGlobal(pos));
+}
+
+void ClientWindow::showContextMenuOnSendButton(QPoint pos)
+{
+    QMenu *btnMenu = new QMenu;
+    QAction *sendPic = new QAction("Send Image");
+    connect(sendPic, SIGNAL(triggered()), this, SLOT(slotSendPicture()));
+
+    btnMenu->addAction(sendPic);
+    btnMenu->popup(ui->sendButton->mapToGlobal(pos));
+}
+void ClientWindow::slotSendPicture(){
+    QString path = QFileDialog::getOpenFileName(0, QObject::tr("Select sending image"),
+                   "/home/kataich75/qtprojects/TECH/TeddyClient/other/", QObject::tr("Image files (*.png)"));
+    sendToServer(Commands::Image, path);
 }

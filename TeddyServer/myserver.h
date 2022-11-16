@@ -31,6 +31,7 @@ public slots:
 signals:
     void serverStarted(bool);
     void newConnection(MyClient *);
+    void failedValidation();
     void clientDisconnected(MyClient *);
     void reNameOnUI(QString, QString);
 };

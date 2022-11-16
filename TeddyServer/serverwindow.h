@@ -1,4 +1,5 @@
 #pragma once
+#include <QCloseEvent>
 #include <QMainWindow>
 #include <QSettings>
 #include <QVector>
@@ -19,6 +20,8 @@ private:
 
     QSettings *settings;
     Ui::ServerWindow *ui;
+protected:
+    void closeEvent(QCloseEvent *event);
 public:
     ServerWindow(QWidget *parent = nullptr);
     ~ServerWindow();
@@ -29,6 +32,7 @@ public:
 public slots:
     void slotServerStatus(bool online);
     void slotNewConnection(MyClient *client);
+    void slotFailedValidation();
     void slotClientDisconnected(MyClient *client);
     void slotReNameOnUI(QString name, QString newName);
     //Windows
@@ -39,6 +43,7 @@ private slots:
     void on_actionReload_triggered();
     void on_actionStop_triggered();
     void on_actionExit_triggered();
+    void slotCloseApplication();
     //Settings
     void on_actionNetwork_triggered();
 };

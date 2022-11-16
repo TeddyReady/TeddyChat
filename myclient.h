@@ -8,7 +8,8 @@ enum Status {Online, NotInPlace, NotDisturb, Other};
 enum Commands {
     SendMessage, Authentication, Exit, 
         UpdateDataBase, NewClient,
-    DataChanged, Restart
+    DataChanged, Restart, Image,
+        ForceQuit
 };
 
 class MyClient {
@@ -18,17 +19,16 @@ public:
     QString username;
     int status;
     QString date, time;
-    QString statusName;
-
+    QString path, statusName;
     QSslSocket *socket;
-    QIcon *avatar;
 
     MyClient(QString ip = "127.0.0.1", int port = 45678, QString username = "Unknown User",
              int status = Status::Online, QString date = "no info",
-             QString time = "no info", QSslSocket *socket = nullptr)
-        : ip(ip), port(port), username(username), status(status), date(date), time(time) {
+             QString time = "no info", QSslSocket *socket = nullptr, QString path = ":/new/prefix1/other/client.png",
+             QString statusName = "Working on lab...")
+        : ip(ip), port(port), username(username), status(status), date(date), time(time),
+          path(path), statusName(statusName) {
         this->socket = socket;
-        this->avatar = new QIcon(":/new/prefix1/other/client.png");
     }
 
     ~MyClient() {}

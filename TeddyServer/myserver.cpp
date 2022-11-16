@@ -48,8 +48,7 @@ void MyServer::incomingConnection(qintptr socketDescriptor){
         socket->setSslConfiguration(config);
         connect(socket, SIGNAL(readyRead()), this, SLOT(slotReadyRead()));
         socket->startServerEncryption();
-    }
-    else{
+    } else {
         delete socket;
     }
 }
@@ -81,7 +80,9 @@ void MyServer::sendToClient(int command, QString receiver, QString message, int 
             out << clients[i]->username
                 << QString::number(clients[i]->status)
                 << clients[i]->date
-                << clients[i]->time;
+                << clients[i]->time
+                << clients[i]->path
+                << clients[i]->statusName;
         }
         out.device()->seek(0);
         out << quint16(data.size() - sizeof(quint16));
@@ -90,7 +91,9 @@ void MyServer::sendToClient(int command, QString receiver, QString message, int 
         out << clients[clients.size() - 1]->username
             << QString::number(clients[clients.size() - 1]->status)
             << clients[clients.size() - 1]->date
-            << clients[clients.size() - 1]->time;
+            << clients[clients.size() - 1]->time
+            << clients[clients.size() - 1]->path
+            << clients[clients.size() - 1]->statusName;
 
         out.device()->seek(0);
         out << quint16(data.size() - sizeof(quint16));
@@ -113,6 +116,18 @@ void MyServer::sendToClient(int command, QString receiver, QString message, int 
         for(int i = 0; i < clients.size(); i++){
             clients[i]->socket->write(data);
         }
+    } else if (command == Commands::Image) {
+        out << receiver << message;
+        out.device()->seek(0);
+        out << quint16(data.size() - sizeof(quint16));
+        for(int i = 0; i < clients.size(); i++){
+            clients[i]->socket->write(data);
+        }
+    } else if (command == Commands::ForceQuit) {
+        out.device()->seek(0);
+        out << quint16(data.size() - sizeof(quint16));
+        clients[clients.size() - 1]->socket->write(data);
+        clients.pop_back();
     }
 }
 void MyServer::slotReadyRead(){
@@ -128,33 +143,42 @@ void MyServer::slotReadyRead(){
     //END
     quint8 command;
     in >> command;
-    if((int)command == Commands::SendMessage) {
+    if(static_cast<int>(command) == Commands::SendMessage) {
         QString name, message;
         in >> name >> message;
         sendToClient(Commands::SendMessage, name, message);
-    } else if((int)command == Commands::Authentication){
-        QString ip, port, name, status, date, time;
-        in >> ip >> port >> name >> status >> date >> time;
-            MyClient *ptr = new MyClient(ip, port.toInt(), name, status.toInt(), date, time, socket);
-            clients.push_back(ptr);
-            emit newConnection(ptr);
-            sendToClient(Commands::Authentication, ptr->username, "Server: " + ptr->username + " join chat channel!");
-    } else if ((int)command == Commands::Exit){
+    } else if(static_cast<int>(command) == Commands::Authentication){
+        QString ip, port, name, status, date, time, path, customStatus;
+        in >> ip >> port >> name >> status >> date >> time >> path >> customStatus;
+        MyClient *ptr = new MyClient(ip, port.toInt(), name, status.toInt(), date, time, socket, path, customStatus);
+        clients.push_back(ptr);
+        //Validation
+        for (int i = 0; i < clients.size() - 1; i++) {
+            if (clients[i]->username == clients[clients.size() - 1]->username) {
+                sendToClient(Commands::ForceQuit);
+                emit failedValidation();
+                return;
+            }
+        }
+        //END
+        emit newConnection(ptr);
+        sendToClient(Commands::Authentication, ptr->username, "Server: " + ptr->username + " join chat channel!");
+    } else if (static_cast<int>(command) == Commands::Exit){
         QString name;
         in >> name;
         for(int i = 0; i < clients.size(); i++){
             if(name == clients[i]->username){
-                sendToClient(Commands::Exit, name, "Server: " + name + " leaved current session!");
                 emit clientDisconnected(clients[i]);
                 clients.removeAt(i);
+                sendToClient(Commands::Exit, name, "Server: " + name + " leaved current session!");
                 break;
             }
         }
-    } else if ((int)command == Commands::UpdateDataBase) {
+    } else if (static_cast<int>(command) == Commands::UpdateDataBase) {
         sendToClient(Commands::UpdateDataBase);
         for (int i = 0; i < clients.size() - 1; i++)
             sendToClient(Commands::NewClient, QString::number(i));
-    } else if ((int)command == Commands::DataChanged) {
+    } else if (static_cast<int>(command) == Commands::DataChanged) {
         QString name, newData; in >> name >> newData;
         if (newData == QString::number(Status::Online) ||
             newData == QString::number(Status::NotInPlace) ||
@@ -182,5 +206,8 @@ void MyServer::slotReadyRead(){
                 }
             } sendToClient(Commands::DataChanged, name, newData);
         }
+    } else if (static_cast<int>(command) == Commands::Image) {
+        QString name, image; in >> name >> image;
+        sendToClient(Commands::Image, name, image);
     }
 }

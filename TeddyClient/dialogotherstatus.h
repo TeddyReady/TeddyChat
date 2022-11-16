@@ -8,7 +8,7 @@ class DialogOtherStatus;
 class DialogOtherStatus : public QDialog{
     Q_OBJECT
 public:
-    explicit DialogOtherStatus(QWidget *parent = nullptr);
+    explicit DialogOtherStatus(QWidget *parent = nullptr, QString status = "Create your status...");
     ~DialogOtherStatus();
 private slots:
     void on_buttonBox_accepted();

@@ -71,10 +71,23 @@
     <item row="1" column="0">
      <layout class="QHBoxLayout" name="horizontalLayout_5">
       <item>
-       <widget class="QTextBrowser" name="incomingField"/>
+       <widget class="QListWidget" name="chatList"/>
       </item>
       <item>
-       <widget class="QListWidget" name="clientList"/>
+       <widget class="QListWidget" name="clientList">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
+        <property name="flow">
+         <enum>QListView::TopToBottom</enum>
+        </property>
+        <property name="resizeMode">
+         <enum>QListView::Fixed</enum>
+        </property>
+        <property name="viewMode">
+         <enum>QListView::ListMode</enum>
+        </property>
+       </widget>
       </item>
      </layout>
     </item>
@@ -160,6 +173,7 @@
      <addaction name="actionOther"/>
     </widget>
     <addaction name="ipPortAct"/>
+    <addaction name="actionAvatar"/>
     <addaction name="nameAct"/>
     <addaction name="menuEdit_status"/>
    </widget>
@@ -298,6 +312,14 @@
    </property>
    <property name="toolTip">
     <string>Create your status!</string>
+   </property>
+  </action>
+  <action name="actionAvatar">
+   <property name="text">
+    <string>Edit avatar...</string>
+   </property>
+   <property name="toolTip">
+    <string>Customize yourself!</string>
    </property>
   </action>
  </widget>

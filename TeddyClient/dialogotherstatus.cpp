@@ -1,11 +1,12 @@
 #include "dialogotherstatus.h"
 #include "ui_dialogotherstatus.h"
 
-DialogOtherStatus::DialogOtherStatus(QWidget *parent) :
+DialogOtherStatus::DialogOtherStatus(QWidget *parent, QString status) :
     QDialog(parent),
     ui(new Ui::DialogOtherStatus)
 {
     ui->setupUi(this);
+    ui->lineStatus->setText(status);
 }
 
 DialogOtherStatus::~DialogOtherStatus()
