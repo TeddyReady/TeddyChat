@@ -9,7 +9,8 @@ enum Commands {
     SendMessage, Authentication, Exit, 
         UpdateDataBase, NewClient,
     DataChanged, Restart, Image,
-        ForceQuit, PathChanged
+        ForceQuit, PathChanged,
+    ColorChanged, ForbiddenName
 };
 
 class MyClient {
@@ -18,36 +19,17 @@ public:
     int port;
     QString username;
     int status;
-    QString date, time;
-    QString path, statusName;
+    QString date, time, path, statusName, colorName;
     QSslSocket *socket;
 
     MyClient(QString ip = "127.0.0.1", int port = 45678, QString username = "Unknown User",
              int status = Status::Online, QString date = "no info",
              QString time = "no info", QSslSocket *socket = nullptr, QString path = ":/new/prefix1/other/client.png",
-             QString statusName = "Working on lab...")
+             QString statusName = "Working on lab...", QString colorName = "white")
         : ip(ip), port(port), username(username), status(status), date(date), time(time),
-          path(path), statusName(statusName) {
+          path(path), statusName(statusName), colorName(colorName) {
         this->socket = socket;
     }
-
     ~MyClient() {}
-
-    bool operator==(const MyClient &client)
-    {
-        if(username == client.username){
-            return true;
-        } else {
-            return false;
-        }
-    }
-    bool operator!=(const MyClient &client)
-    {
-        if(*this == client){
-           return false;
-        } else {
-            return true;
-        }
-    }
 };
 

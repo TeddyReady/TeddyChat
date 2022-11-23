@@ -12,10 +12,14 @@ ClientWindow::ClientWindow(QWidget *parent)
 
     ui->chatList->setIconSize(QSize(320, 240));
     ui->clientList->setIconSize(QSize(60, 40));
+    ui->chatList->setSelectionMode(QAbstractItemView::SelectionMode::NoSelection);
+    ui->clientList->setSelectionMode(QAbstractItemView::SelectionMode::NoSelection);
 
     ui->disconnectAct->setDisabled(true);
     ui->sendButton->setDisabled(true);
     ui->saveHistoryAct->setDisabled(true);
+    ui->actionShowIP->setChecked(true);
+    ui->actionShowTime->setChecked(true);
     ui->labelIP->setText(client.ip);
     ui->labelPort->setText(QString::number(client.port));
     ui->actionOther->setText(client.statusName);
@@ -36,7 +40,20 @@ ClientWindow::ClientWindow(QWidget *parent)
         ui->labelStatus->setText(client.statusName);
         ui->actionOther->setChecked(true);
         break;
-    }
+    } if (showIP) {
+        ui->actionShowIP->setChecked(true);
+        ui->labelIP->setHidden(false);
+        ui->labelPort->setHidden(false);
+        ui->label_2->setHidden(false);
+        ui->label_3->setHidden(false);
+    } else {
+        ui->actionShowIP->setChecked(false);
+        ui->labelIP->setHidden(true);
+        ui->labelPort->setHidden(true);
+        ui->label_2->setHidden(true);
+        ui->label_3->setHidden(true);
+    } if (showTime) ui->actionShowTime->setChecked(true);
+    else ui->actionShowTime->setChecked(false);
 
     client.socket = new QSslSocket(this);
     connect(client.socket, SIGNAL(readyRead()), this, SLOT(slotReadyRead()));
@@ -82,6 +99,17 @@ void ClientWindow::uploadSettings(){
     client.statusName = settings->value("customStatus", "Working on Lab").toString();
     client.path = settings->value("avatarPath", ":/new/prefix1/other/client.png").toString();
     setGeometry(settings->value("geometry", QRect(200, 200, 530, 388)).toRect());
+    //Цвет
+    windowColor.setNamedColor(settings->value("backgroundColor", "white").toString());
+    pal.setColor(QPalette::Background, windowColor);
+    setAutoFillBackground(true);
+    setPalette(pal);
+    myMsgColor.setNamedColor(settings->value("clientMsgColor", "black").toString());
+    otherMsgColor.setNamedColor(settings->value("otherMsgColor", "blue").toString());
+    client.colorName = settings->value("clientProfileColor", "white").toString();
+    //UI
+    showIP = settings->value("showModeIP", "1").toBool();
+    showTime = settings->value("showModeTime", "1").toBool();
 }
 void ClientWindow::saveSettings(){
     settings->setValue("ip", client.ip);
@@ -91,6 +119,12 @@ void ClientWindow::saveSettings(){
     settings->setValue("customStatus", client.statusName);
     settings->setValue("avatarPath", client.path);
     settings->setValue("geometry", geometry());
+    settings->setValue("backgroundColor", windowColor.name());
+    settings->setValue("clientMsgColor", myMsgColor.name());
+    settings->setValue("otherMsgColor", otherMsgColor.name());
+    settings->setValue("clientProfileColor", client.colorName);
+    settings->setValue("showModeIP", QString::number(ui->actionShowIP->isChecked()));
+    settings->setValue("showModeTime", QString::number(ui->actionShowTime->isChecked()));
 }
 
 void ClientWindow::sendToServer(int command, QString message, int option)
@@ -104,12 +138,13 @@ void ClientWindow::sendToServer(int command, QString message, int option)
     } else if (command == Commands::Authentication) {
         out << client.ip << QString::number(client.port)
             << client.username << QString::number(client.status)
-            << client.date << client.time << client.path << client.statusName;
+            << client.date << client.time << client.path
+            << client.statusName << client.colorName;
     } else if (command == Commands::Exit) {
         out << client.username;
     } else if (command == Commands::DataChanged) {
         out << client.username;
-        if (option == Status::Other || option == Commands::PathChanged) {
+        if (option == Status::Other || option == Commands::PathChanged || option == Commands::ColorChanged) {
             out << QString::number(option);
         }  out << message;
     } else if (command == Commands::Image) {
@@ -133,19 +168,35 @@ void ClientWindow::slotReadyRead()
     //END
     quint8 command;
     in >> command;
+    QListWidgetItem *item;
     if(static_cast<int>(command) == Commands::SendMessage) {
         QString name, message, date, time;
         in >> name >> message >> date >> time;
         if(name == client.username) {
-            QListWidgetItem *item = new QListWidgetItem("You: " + message, ui->chatList);
-            item->setForeground(Qt::black);
+            if (showTime) {
+                if (showIP)
+                    item = new QListWidgetItem(time + " & " + client.ip + "/ You: " + message, ui->chatList);
+                else item = new QListWidgetItem(time + "/ You: " + message, ui->chatList);
+            } else {
+                if (showIP)
+                    item = new QListWidgetItem(client.ip + "/ You: " + message, ui->chatList);
+                else item = new QListWidgetItem("You: " + message, ui->chatList);
+            }
+            item->setForeground(myMsgColor);
             ui->chatList->addItem(item);
         } else {
-            if (client.status != Status::NotDisturb){
+            if (client.status != Status::NotDisturb)
                 QSound::play("/home/kataich75/qtprojects/TECH/TeddyClient/other/newmessage.wav");
+            if (showTime) {
+                if (showIP)
+                    item = new QListWidgetItem(time + " & " + client.ip + "/ " + name + ": " + message, ui->chatList);
+                else item = new QListWidgetItem(time + "/ " + name + ": " + message, ui->chatList);
+            } else {
+                if (showIP)
+                    item = new QListWidgetItem(client.ip + "/ " + name + ": " + message + "\t" + client.ip, ui->chatList);
+                else item = new QListWidgetItem(name + ": " + message, ui->chatList);
             }
-            QListWidgetItem *item = new QListWidgetItem(name + ": " + message, ui->chatList);
-            item->setForeground(Qt::blue);
+            item->setForeground(otherMsgColor);
             ui->chatList->addItem(item);
         }
         //Добавляем данные для XML
@@ -159,13 +210,13 @@ void ClientWindow::slotReadyRead()
         QString name, message;
         in >> name >> message;
         if(name == client.username) {
-            QListWidgetItem *item = new QListWidgetItem(message, ui->chatList);
+            item = new QListWidgetItem(message, ui->chatList);
             item->setForeground(Qt::darkGreen);
             ui->chatList->addItem(item);
             ui->saveHistoryAct->setEnabled(true);
             sendToServer(Commands::UpdateDataBase);
         } else {
-            QListWidgetItem *item = new QListWidgetItem(message, ui->chatList);
+            item = new QListWidgetItem(message, ui->chatList);
             item->setForeground(Qt::green);
             ui->chatList->addItem(item);
         }
@@ -174,11 +225,11 @@ void ClientWindow::slotReadyRead()
         QString name, message;
         in >> name >> message;
         if (name == "Server"){
-            QListWidgetItem *item = new QListWidgetItem(message, ui->chatList);
+            item = new QListWidgetItem(message, ui->chatList);
             item->setForeground(Qt::darkRed);
             ui->chatList->addItem(item);
         } else if(name != client.username){
-            QListWidgetItem *item = new QListWidgetItem(message, ui->chatList);
+            item = new QListWidgetItem(message, ui->chatList);
             item->setForeground(Qt::darkRed);
             ui->chatList->addItem(item);
             for(int i = 0; i < includedClients.size(); i++){
@@ -195,25 +246,25 @@ void ClientWindow::slotReadyRead()
         quint8 countOfClients;
         in >> countOfClients;
         for (int i = 0; i < (int)countOfClients; i++) {
-            QString name, status, date, time, path, customStatus;
-            in >> name >> status >> date >> time >> path >> customStatus;
-            MyClient *ptr = new MyClient("127.0.0.1", 45678, name, status.toInt(), date, time, nullptr, path, customStatus);
+            QString name, status, date, time, path, customStatus, colorName;
+            in >> name >> status >> date >> time >> path >> customStatus >> colorName;
+            MyClient *ptr = new MyClient("127.0.0.1", 45678, name, status.toInt(), date, time, nullptr, path, customStatus, colorName);
             includedClients.push_back(ptr);
-            QListWidgetItem *item = new QListWidgetItem(QIcon(path), name, ui->clientList);
+            item = new QListWidgetItem(QIcon(path), name, ui->clientList);
             ui->clientList->addItem(item);
         }
 
     } else if (static_cast<int>(command) == Commands::NewClient) {
-        QString name, status, date, time, path, customStatus;
-        in >> name >> status >> date >> time >> path >> customStatus;
-        MyClient *ptr = new MyClient("127.0.0.1", 45678, name, status.toInt(), date, time, nullptr, path, customStatus);
+        QString name, status, date, time, path, customStatus, colorName;
+        in >> name >> status >> date >> time >> path >> customStatus >> colorName;
+        MyClient *ptr = new MyClient("127.0.0.1", 45678, name, status.toInt(), date, time, nullptr, path, customStatus, colorName);
         includedClients.push_back(ptr);
-        QListWidgetItem *item = new QListWidgetItem(QIcon(path), name, ui->clientList);
+        item = new QListWidgetItem(QIcon(path), name, ui->clientList);
         ui->clientList->addItem(item);
 
     } else if (static_cast<int>(command) == Commands::Restart) {
         statusBar()->showMessage("Server reloading...", 2500);
-        QListWidgetItem *item = new QListWidgetItem(client.username + " has been disconnected for reload server!", ui->chatList);
+        item = new QListWidgetItem(client.username + " has been disconnected for reload server!", ui->chatList);
         item->setForeground(Qt::darkRed);
         ui->chatList->addItem(item);
         item->setForeground(Qt::darkYellow);
@@ -222,20 +273,19 @@ void ClientWindow::slotReadyRead()
         client.socket->disconnectFromHost();
 
     } else if (static_cast<int>(command) == Commands::DataChanged) {
-        statusBar()->showMessage("Sending new data to server...", 2500);
         QString name, message; in >> name >> message;
         if (message == QString::number(Status::Online) ||
         message == QString::number(Status::NotInPlace) ||
         message == QString::number(Status::NotDisturb)) {
             if (name == client.username) {
-                QListWidgetItem *item = new QListWidgetItem("Server: Your status has been updated!", ui->chatList);
+                item = new QListWidgetItem("Server: Your status has been updated!", ui->chatList);
                 item->setForeground(Qt::cyan);
                 ui->chatList->addItem(item);
             } else {
                 for (MyClient *ptr: includedClients) {
                     if (ptr->username == name) {
                         ptr->status = message.toInt();
-                        QListWidgetItem *item = new QListWidgetItem("Server: " + name + " status has been updated!", ui->chatList);
+                        item = new QListWidgetItem("Server: " + name + " status has been updated!", ui->chatList);
                         item->setForeground(Qt::darkCyan);
                         ui->chatList->addItem(item);
                         break;
@@ -245,7 +295,7 @@ void ClientWindow::slotReadyRead()
         } else if (message == QString::number(Status::Other)) {
             QString customStatus; in >> customStatus;
             if (name == client.username) {
-                QListWidgetItem *item = new QListWidgetItem("Server: Your status has been updated for " + customStatus + "!", ui->chatList);
+                item = new QListWidgetItem("Server: Your status has been updated for " + customStatus + "!", ui->chatList);
                 item->setForeground(Qt::cyan);
                 ui->chatList->addItem(item);
             } else {
@@ -253,7 +303,7 @@ void ClientWindow::slotReadyRead()
                     if (ptr->username == name) {
                         ptr->status = message.toInt();
                         ptr->statusName = customStatus;
-                        QListWidgetItem *item = new QListWidgetItem("Server: " + name + " status has been updated for " + customStatus + "!", ui->chatList);
+                        item = new QListWidgetItem("Server: " + name + " status has been updated for " + customStatus + "!", ui->chatList);
                         item->setForeground(Qt::darkCyan);
                         ui->chatList->addItem(item);
                         break;
@@ -263,7 +313,7 @@ void ClientWindow::slotReadyRead()
         } else if (message == QString::number(Commands::PathChanged)) {
             QString path; in >> path;
             if (name == client.username) {
-                QListWidgetItem *item = new QListWidgetItem("Server: Your avatar has been updated!", ui->chatList);
+                item = new QListWidgetItem("Server: Your avatar has been updated!", ui->chatList);
                 item->setForeground(Qt::cyan);
                 ui->chatList->addItem(item);
             } else {
@@ -276,8 +326,26 @@ void ClientWindow::slotReadyRead()
                                 break;
                             }
                         }
-                        QListWidgetItem *item = new QListWidgetItem("Server: " + name + " avatar has been updated!", ui->chatList);
+                        item = new QListWidgetItem("Server: " + name + " avatar has been updated!", ui->chatList);
                         item->setForeground(Qt::darkCyan);
+                        ui->chatList->addItem(item);
+                        break;
+                    }
+                }
+            }
+        } else if (message == QString::number(Commands::ColorChanged)) {
+            QString colorName; in >> colorName;
+            QColor tmp; tmp.setNamedColor(colorName);
+            if (name == client.username) {
+                item = new QListWidgetItem("Server: Your background color has been updated!", ui->chatList);
+                item->setForeground(tmp);
+                ui->chatList->addItem(item);
+            } else {
+                for (MyClient *ptr: includedClients) {
+                    if (ptr->username == name) {
+                        ptr->colorName = colorName;
+                        item = new QListWidgetItem("Server: " + name + " background color has been updated!", ui->chatList);
+                        item->setForeground(tmp);
                         ui->chatList->addItem(item);
                         break;
                     }
@@ -286,7 +354,8 @@ void ClientWindow::slotReadyRead()
         } else {
             if (name == client.username) {
                 client.username = message;
-                QListWidgetItem *item = new QListWidgetItem("Server: Your name has been updated for " + message + "!", ui->chatList);
+                setWindowTitle(client.username);
+                item = new QListWidgetItem("Server: Your name has been updated for " + message + "!", ui->chatList);
                 item->setForeground(Qt::cyan);
                 ui->chatList->addItem(item);
             } else {
@@ -299,7 +368,7 @@ void ClientWindow::slotReadyRead()
                                 break;
                             }
                         }
-                        QListWidgetItem *item = new QListWidgetItem("Server: " + name + " name has been updated for " + message + "!", ui->chatList);
+                        item = new QListWidgetItem("Server: " + name + " name has been updated for " + message + "!", ui->chatList);
                         item->setForeground(Qt::darkCyan);
                         ui->chatList->addItem(item);
                         break;
@@ -310,11 +379,18 @@ void ClientWindow::slotReadyRead()
     } else if (static_cast<int>(command) == Commands::Image) {
         QString name, message, date, time;
         in >> name >> message >> date >> time;
-        QPixmap image;
-        image.load(message);
+        QPixmap image; image.load(message);
         if(name == client.username) {
-            QListWidgetItem *item = new QListWidgetItem("You send image:", ui->chatList);
-            item->setForeground(Qt::black);
+            if (showTime) {
+                if (showIP)
+                    item = new QListWidgetItem(time + " & " + client.ip + "/ You send image:", ui->chatList);
+                else item = new QListWidgetItem(time + "/ You send image:", ui->chatList);
+            } else {
+                if (showIP)
+                    item = new QListWidgetItem(client.ip + "/ You send image:", ui->chatList);
+                else item = new QListWidgetItem("You send image:", ui->chatList);
+            }
+            item->setForeground(myMsgColor);
             ui->chatList->addItem(item);
             item = new QListWidgetItem(QIcon(image), "", ui->chatList);
             ui->chatList->addItem(item);
@@ -322,8 +398,16 @@ void ClientWindow::slotReadyRead()
             if (client.status != Status::NotDisturb){
                 QSound::play("/home/kataich75/qtprojects/TECH/TeddyClient/other/newmessage.wav");
             }
-            QListWidgetItem *item = new QListWidgetItem(name + " send image:", ui->chatList);
-            item->setForeground(Qt::blue);
+            if (showTime) {
+                if (showIP)
+                    item = new QListWidgetItem(time + " & " + client.ip + "/ " + name + " send image:", ui->chatList);
+                else item = new QListWidgetItem(time + "/ " + name + " send image:", ui->chatList);
+            } else {
+                if (showIP)
+                    item = new QListWidgetItem(client.ip + "/ " + name + " send image:", ui->chatList);
+                else item = new QListWidgetItem(name + " send image:", ui->chatList);
+            }
+            item->setForeground(otherMsgColor);
             ui->chatList->addItem(item);
             item = new QListWidgetItem(QIcon(image), "", ui->chatList);
             ui->chatList->addItem(item);
@@ -341,11 +425,15 @@ void ClientWindow::slotReadyRead()
         xmlData.push_back(name);
         xmlData.push_back(base64);
     } else if (static_cast<int>(command) == Commands::ForceQuit) {
-        QListWidgetItem *item = new QListWidgetItem("Validation failed, your name already used!", ui->chatList);
+        item = new QListWidgetItem("Validation failed, your name already used!", ui->chatList);
         item->setForeground(Qt::darkYellow);
         ui->chatList->addItem(item);
         isConnected = false;
         client.socket->disconnectFromHost();
+    } else if (static_cast<int>(command) == Commands::ForbiddenName) {
+        item = new QListWidgetItem("Cannot change username, this name already used!", ui->chatList);
+        item->setForeground(Qt::darkYellow);
+        ui->chatList->addItem(item);
     }
 }
 
@@ -457,6 +545,70 @@ void ClientWindow::slotCloseApplication(){
     }
     qApp->exit();
 }
+//Меню "View"
+void ClientWindow::on_actionBackColor_triggered()
+{
+    statusBar()->showMessage("Set your background color...", 2500);
+    QColor newColor = QColorDialog::getColor(windowColor, parentWidget());
+    if ( newColor != windowColor ){
+        windowColor = newColor;
+        pal.setColor(QPalette::Background, windowColor);
+        setPalette(pal);
+    }
+}
+
+void ClientWindow::on_actionMyColorMsg_triggered()
+{
+    statusBar()->showMessage("Setting your messages color...", 2500);
+    QColor newColor = QColorDialog::getColor(myMsgColor, parentWidget());
+    if ( newColor != myMsgColor ){
+        myMsgColor = newColor;
+    }
+}
+void ClientWindow::on_actionOtherColorMsg_triggered()
+{
+    statusBar()->showMessage("Setting your friends messages color...", 2500);
+    QColor newColor = QColorDialog::getColor(otherMsgColor, parentWidget());
+    if ( newColor != otherMsgColor ){
+        otherMsgColor = newColor;
+    }
+}
+void ClientWindow::on_actionProfileColor_triggered()
+{
+    statusBar()->showMessage("Modify yourself...", 2500);
+    QColor tmp, newColor; tmp.setNamedColor(client.colorName);
+    newColor = QColorDialog::getColor(tmp, parentWidget());
+    if ( newColor != tmp ){
+        client.colorName = newColor.name();
+        sendToServer(Commands::DataChanged, client.colorName, Commands::ColorChanged);
+    }
+}
+
+void ClientWindow::on_actionShowIP_triggered()
+{
+    statusBar()->showMessage("Set visible mode of your ip...", 2500);
+    if (!ui->actionShowIP->isChecked()) {
+        showIP = false;
+        ui->labelIP->setHidden(true);
+        ui->labelPort->setHidden(true);
+        ui->label_2->setHidden(true);
+        ui->label_3->setHidden(true);
+    }
+    else {
+        showIP = true;
+        ui->labelIP->setHidden(false);
+        ui->labelPort->setHidden(false);
+        ui->label_2->setHidden(false);
+        ui->label_3->setHidden(false);
+    }
+}
+void ClientWindow::on_actionShowTime_triggered()
+{
+    statusBar()->showMessage("Set visible mode of your time...", 2500);
+    if (!ui->actionShowTime->isChecked()) showTime = false;
+    else showTime = true;
+}
+
 //Меню "Settings"
 void ClientWindow::on_ipPortAct_triggered()
 {
@@ -494,11 +646,12 @@ void ClientWindow::on_nameAct_triggered()
 }
 void ClientWindow::slotDialogUserNameParams(QString username)
 {
-    setWindowTitle(username);
-    if (isConnected){
+    if (isConnected)
         sendToServer(Commands::DataChanged, username);
+    else {
+        setWindowTitle(username);
+        client.username = username;
     }
-    else client.username = username;
 }
 
 void ClientWindow::on_actionOnline_triggered()
@@ -624,17 +777,16 @@ void ClientWindow::showContextMenuOnMessageField(QPoint pos)
         connect(clearAct, &QAction::triggered, [this]() {
                 ui->chatList->clear();
             });
-        connect(showAct, &QAction::triggered, [this]() {
-                if (ui->chatList->currentItem()->text() == "") {
+        connect(showAct, &QAction::triggered, [=]() {
                     DialogImage *window = new DialogImage(this, ui->chatList->currentItem()->icon().
                         pixmap(ui->chatList->currentItem()->icon().actualSize(QSize(1920, 1080))));
                     window->setWindowTitle("About image");
                     window->show();
                     connect(window, SIGNAL(saveImage(QString, const QPixmap *)), this, SLOT(slotSaveImage(QString, const QPixmap*)));
-                }
             });
         menu->addAction(clearAct);
-        menu->addAction(showAct);
+        if (ui->chatList->currentItem()->text() == "")
+            menu->addAction(showAct);
         menu->popup(ui->chatList->viewport()->mapToGlobal(pos));
     }
 }

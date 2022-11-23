@@ -47,9 +47,17 @@ void ServerWindow::slotServerStatus(bool online){
     if (online) {
         ui->chatField->setTextColor(Qt::green);
         ui->chatField->append(QTime::currentTime().toString() + " Server has been deployed!");
+        //XML
+        xmlData.push_back(QDate::currentDate().toString());
+        xmlData.push_back(QTime::currentTime().toString());
+        xmlData.push_back("Server has been deployed!");
     } else {
         ui->chatField->setTextColor(Qt::darkRed);
         ui->chatField->append(QTime::currentTime().toString() + " Fatal Error! Server cannot be deployed");
+        //XML
+        xmlData.push_back(QDate::currentDate().toString());
+        xmlData.push_back(QTime::currentTime().toString());
+        xmlData.push_back("Fatal Error! Server cannot be deployed");
     }
 }
 void ServerWindow::slotNewConnection(MyClient *client) {
@@ -57,10 +65,18 @@ void ServerWindow::slotNewConnection(MyClient *client) {
     ui->chatField->append(client->time + " " + client->username + " has been connected!");
     ui->cntUsers->setText(QString::number(server->clients.size()));
     ui->clientList->addItem(client->username);
+    //XML
+    xmlData.push_back(QDate::currentDate().toString());
+    xmlData.push_back(client->time);
+    xmlData.push_back(client->username + " has been connected!");
 }
 void ServerWindow::slotFailedValidation(){
     ui->chatField->setTextColor(Qt::darkYellow);
-    ui->chatField->append(QTime::currentTime().toString() + " new client has been failed validation!");
+    ui->chatField->append(QTime::currentTime().toString() + " New client has been failed validation!");
+    //XML
+    xmlData.push_back(QDate::currentDate().toString());
+    xmlData.push_back(QTime::currentTime().toString());
+    xmlData.push_back("New client has been failed validation!");
 }
 void ServerWindow::slotClientDisconnected(MyClient *client) {
     ui->chatField->setTextColor(Qt::darkRed);
@@ -74,6 +90,10 @@ void ServerWindow::slotClientDisconnected(MyClient *client) {
             break;
         }
     }
+    //XML
+    xmlData.push_back(QDate::currentDate().toString());
+    xmlData.push_back(client->time);
+    xmlData.push_back(client->username + " has been disconnected!");
 }
 void ServerWindow::slotReNameOnUI(QString name, QString newName){
     for(int i = 0; i < server->clients.size(); i++){
@@ -102,6 +122,10 @@ void ServerWindow::on_actionReload_triggered()
     ui->chatField->setTextColor(Qt::darkYellow);
     ui->chatField->append(QTime::currentTime().toString() + " Reloading server...");
     server->sendToClient(Commands::Restart);
+    //XML
+    xmlData.push_back(QDate::currentDate().toString());
+    xmlData.push_back(QTime::currentTime().toString());
+    xmlData.push_back("Reloading server...");
 }
 void ServerWindow::on_actionStop_triggered()
 {
@@ -117,6 +141,10 @@ void ServerWindow::on_actionStop_triggered()
     ui->actionNetwork->setEnabled(true);
     ui->chatField->setTextColor(Qt::red);
     ui->chatField->append(QTime::currentTime().toString() + " Server has been closed!");
+    //XML
+    xmlData.push_back(QDate::currentDate().toString());
+    xmlData.push_back(QTime::currentTime().toString());
+    xmlData.push_back("Server has been closed!");
 }
 void ServerWindow::on_actionExit_triggered()
 {
@@ -125,6 +153,46 @@ void ServerWindow::on_actionExit_triggered()
     window->setWindowTitle("Quiting app");
     window->show();
     connect(window, SIGNAL(closeApplication()), this, SLOT(slotCloseApplication()));
+}
+
+void ServerWindow::on_actionSave_logs_to_XML_triggered()
+{
+    statusBar()->showMessage("Saving history...", 2500);
+    QString path = QFileDialog::getSaveFileName(0, QObject::tr("Save server logs.."),
+                   "/home/kataich75/qtprojects/TECH/Examples/" + QString("example").trimmed() + ".xml", QObject::tr("XML files (*.xml)"));
+    connect(this, SIGNAL(savePath(QString)), this, SLOT(slotSavePath(QString)));
+    if (path != "")
+        emit savePath(path);
+}
+void ServerWindow::slotSavePath(QString path)
+{
+    if(path != ""){
+        //Формируем XML
+        general = doc.createElement("logs");
+        for (int i = 0; i < xmlData.size(); i += 3){
+            //Теги
+            this->date = doc.createElement("date");
+            this->time = doc.createElement("time");
+            this->message = doc.createElement("message");
+            doc.appendChild(general);
+            //Сообщения между тегами
+            QDomText date_t = doc.createTextNode(xmlData[i]);
+            QDomText time_t = doc.createTextNode(xmlData[i+1]);
+            QDomText message_t = doc.createTextNode(xmlData[i+2]);
+            //Добавление в XML
+            general.appendChild(this->date);
+            this->date.appendChild(date_t);
+            general.appendChild(this->time);
+            this->time.appendChild(time_t);
+            general.appendChild(this->message);
+            this->message.appendChild(message_t);
+        }
+        //END
+            file.setFileName(path);
+            file.open(QIODevice::WriteOnly);
+            QTextStream out(&file);
+            doc.save(out, 4);
+    }
 }
 
 void ServerWindow::slotCloseApplication(){

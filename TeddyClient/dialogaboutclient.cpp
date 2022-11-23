@@ -24,10 +24,16 @@ DialogAboutClient::DialogAboutClient(QWidget *parent, MyClient client) :
     ui->dataLabel->setText(client.date);
     ui->labelIn->setText("in");
     ui->timeLabel->setText(client.time);
+    //Аватар
     QPixmap avatar;
     avatar.load(client.path);
     avatar.scaled(QSize(320, 240));
     ui->picture->setPixmap(avatar);
+    //Цвет
+    windowColor.setNamedColor(client.colorName);
+    pal.setColor(QPalette::Background, windowColor);
+    setAutoFillBackground(true);
+    setPalette(pal);
 }
 
 DialogAboutClient::~DialogAboutClient()

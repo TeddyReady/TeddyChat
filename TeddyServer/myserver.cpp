@@ -82,7 +82,8 @@ void MyServer::sendToClient(int command, QString receiver, QString message, int 
                 << clients[i]->date
                 << clients[i]->time
                 << clients[i]->path
-                << clients[i]->statusName;
+                << clients[i]->statusName
+                << clients[i]->colorName;
         }
         out.device()->seek(0);
         out << quint16(data.size() - sizeof(quint16));
@@ -93,7 +94,8 @@ void MyServer::sendToClient(int command, QString receiver, QString message, int 
             << clients[clients.size() - 1]->date
             << clients[clients.size() - 1]->time
             << clients[clients.size() - 1]->path
-            << clients[clients.size() - 1]->statusName;
+            << clients[clients.size() - 1]->statusName
+            << clients[clients.size() - 1]->colorName;
 
         out.device()->seek(0);
         out << quint16(data.size() - sizeof(quint16));
@@ -108,7 +110,7 @@ void MyServer::sendToClient(int command, QString receiver, QString message, int 
 
     } else if (command == Commands::DataChanged) {
         out << receiver;
-        if (option == Status::Other || option == Commands::PathChanged)
+        if (option == Status::Other || option == Commands::PathChanged || option == Commands::ColorChanged)
             out << QString::number(option);
         out << message;
         out.device()->seek(0);
@@ -130,6 +132,15 @@ void MyServer::sendToClient(int command, QString receiver, QString message, int 
         out << quint16(data.size() - sizeof(quint16));
         clients[clients.size() - 1]->socket->write(data);
         clients.pop_back();
+    } else if (command == Commands::ForbiddenName) {
+        out.device()->seek(0);
+        out << quint16(data.size() - sizeof(quint16));
+        for (int i = 0; i < clients.size(); i++) {
+            if (clients[i]->username == receiver) {
+                clients[i]->socket->write(data);
+                break;
+            }
+        }
     }
 }
 void MyServer::slotReadyRead(){
@@ -150,9 +161,9 @@ void MyServer::slotReadyRead(){
         in >> name >> message;
         sendToClient(Commands::SendMessage, name, message);
     } else if(static_cast<int>(command) == Commands::Authentication){
-        QString ip, port, name, status, date, time, path, customStatus;
-        in >> ip >> port >> name >> status >> date >> time >> path >> customStatus;
-        MyClient *ptr = new MyClient(ip, port.toInt(), name, status.toInt(), date, time, socket, path, customStatus);
+        QString ip, port, name, status, date, time, path, customStatus, colorName;
+        in >> ip >> port >> name >> status >> date >> time >> path >> customStatus >> colorName;
+        MyClient *ptr = new MyClient(ip, port.toInt(), name, status.toInt(), date, time, socket, path, customStatus, colorName);
         clients.push_back(ptr);
         //Validation
         for (int i = 0; i < clients.size() - 1; i++) {
@@ -207,7 +218,23 @@ void MyServer::slotReadyRead(){
                     break;
                 }
             } sendToClient(Commands::DataChanged, name, path, Commands::PathChanged);
+        } else if (newData == QString::number(Commands::ColorChanged)) {
+            QString colorName; in >> colorName;
+            for (MyClient *ptr: clients){
+                if (ptr->username == name) {
+                    ptr->colorName = colorName;
+                    break;
+                }
+            } sendToClient(Commands::DataChanged, name, colorName, Commands::ColorChanged);
         } else {
+            //Validation
+            for (int i = 0; i < clients.size() - 1; i++) {
+                if (clients[i]->username == newData) {
+                    sendToClient(Commands::ForbiddenName, name, newData);
+                    return;
+                }
+            }
+            //END
             for (MyClient *ptr: clients){
                 if (ptr->username == name) {
                     ptr->username = newData;

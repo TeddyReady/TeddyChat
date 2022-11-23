@@ -15,59 +15,6 @@
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QGridLayout" name="gridLayout_4">
-    <item row="1" column="0">
-     <layout class="QHBoxLayout" name="horizontalLayout_5">
-      <item>
-       <widget class="QListWidget" name="chatList">
-        <property name="layoutDirection">
-         <enum>Qt::LeftToRight</enum>
-        </property>
-        <property name="flow">
-         <enum>QListView::TopToBottom</enum>
-        </property>
-        <property name="resizeMode">
-         <enum>QListView::Fixed</enum>
-        </property>
-        <property name="viewMode">
-         <enum>QListView::ListMode</enum>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QListWidget" name="clientList">
-        <property name="enabled">
-         <bool>true</bool>
-        </property>
-        <property name="movement">
-         <enum>QListView::Static</enum>
-        </property>
-        <property name="flow">
-         <enum>QListView::TopToBottom</enum>
-        </property>
-        <property name="resizeMode">
-         <enum>QListView::Fixed</enum>
-        </property>
-        <property name="viewMode">
-         <enum>QListView::ListMode</enum>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </item>
-    <item row="2" column="0">
-     <layout class="QHBoxLayout" name="horizontalLayout_4">
-      <item>
-       <widget class="QLineEdit" name="messageField"/>
-      </item>
-      <item>
-       <widget class="QPushButton" name="sendButton">
-        <property name="text">
-         <string>-&gt;</string>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </item>
     <item row="0" column="0">
      <layout class="QGridLayout" name="gridLayout_2">
       <item row="0" column="0">
@@ -121,15 +68,61 @@
       </item>
      </layout>
     </item>
-    <item row="3" column="0">
-     <layout class="QGridLayout" name="gridLayout_3">
-      <item row="0" column="0">
-       <widget class="QPushButton" name="profileButton">
-        <property name="text">
-         <string>Profile</string>
+    <item row="1" column="0">
+     <layout class="QHBoxLayout" name="horizontalLayout_5">
+      <item>
+       <widget class="QListWidget" name="chatList">
+        <property name="layoutDirection">
+         <enum>Qt::LeftToRight</enum>
+        </property>
+        <property name="flow">
+         <enum>QListView::TopToBottom</enum>
+        </property>
+        <property name="resizeMode">
+         <enum>QListView::Fixed</enum>
+        </property>
+        <property name="viewMode">
+         <enum>QListView::ListMode</enum>
         </property>
        </widget>
       </item>
+      <item>
+       <widget class="QListWidget" name="clientList">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
+        <property name="movement">
+         <enum>QListView::Static</enum>
+        </property>
+        <property name="flow">
+         <enum>QListView::TopToBottom</enum>
+        </property>
+        <property name="resizeMode">
+         <enum>QListView::Fixed</enum>
+        </property>
+        <property name="viewMode">
+         <enum>QListView::ListMode</enum>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </item>
+    <item row="2" column="0">
+     <layout class="QHBoxLayout" name="horizontalLayout_4">
+      <item>
+       <widget class="QLineEdit" name="messageField"/>
+      </item>
+      <item>
+       <widget class="QPushButton" name="sendButton">
+        <property name="text">
+         <string>-&gt;</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </item>
+    <item row="3" column="0">
+     <layout class="QGridLayout" name="gridLayout_3">
       <item row="0" column="1">
        <spacer name="horizontalSpacer">
         <property name="orientation">
@@ -137,29 +130,32 @@
         </property>
         <property name="sizeHint" stdset="0">
          <size>
-          <width>284</width>
+          <width>88</width>
           <height>17</height>
          </size>
         </property>
        </spacer>
       </item>
+      <item row="0" column="0">
+       <widget class="QPushButton" name="profileButton">
+        <property name="text">
+         <string>Profile</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="3">
+       <widget class="QLabel" name="labelStatus">
+        <property name="text">
+         <string>TextLabel</string>
+        </property>
+       </widget>
+      </item>
       <item row="0" column="2">
-       <layout class="QHBoxLayout" name="horizontalLayout">
-        <item>
-         <widget class="QLabel" name="label">
-          <property name="text">
-           <string>Your Status:</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLabel" name="labelStatus">
-          <property name="text">
-           <string>TextLabel</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
+       <widget class="QLabel" name="label">
+        <property name="text">
+         <string>Your Status:</string>
+        </property>
+       </widget>
       </item>
      </layout>
     </item>
@@ -210,7 +206,27 @@
     <addaction name="separator"/>
     <addaction name="quitAct"/>
    </widget>
+   <widget class="QMenu" name="menuView">
+    <property name="title">
+     <string>View</string>
+    </property>
+    <widget class="QMenu" name="menuSet_messages_or_profile_color">
+     <property name="title">
+      <string>Set messages or profile color...</string>
+     </property>
+     <addaction name="actionProfileColor"/>
+     <addaction name="separator"/>
+     <addaction name="actionMyColorMsg"/>
+     <addaction name="actionOtherColorMsg"/>
+    </widget>
+    <addaction name="actionBackColor"/>
+    <addaction name="menuSet_messages_or_profile_color"/>
+    <addaction name="separator"/>
+    <addaction name="actionShowIP"/>
+    <addaction name="actionShowTime"/>
+   </widget>
    <addaction name="menuFile"/>
+   <addaction name="menuView"/>
    <addaction name="menuSettings"/>
    <addaction name="menuHelp"/>
   </widget>
@@ -336,6 +352,51 @@
    </property>
    <property name="toolTip">
     <string>Customize yourself!</string>
+   </property>
+  </action>
+  <action name="actionBackColor">
+   <property name="text">
+    <string>Set background color...</string>
+   </property>
+   <property name="toolTip">
+    <string>Customize your background color!</string>
+   </property>
+  </action>
+  <action name="actionShowIP">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Show ip</string>
+   </property>
+   <property name="toolTip">
+    <string>Set visible mode of IP</string>
+   </property>
+  </action>
+  <action name="actionShowTime">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Show time</string>
+   </property>
+   <property name="toolTip">
+    <string>Set visible mode of time</string>
+   </property>
+  </action>
+  <action name="actionMyColorMsg">
+   <property name="text">
+    <string>Set color of your messages...</string>
+   </property>
+  </action>
+  <action name="actionOtherColorMsg">
+   <property name="text">
+    <string>Set color of other messages...</string>
+   </property>
+  </action>
+  <action name="actionProfileColor">
+   <property name="text">
+    <string>Set color of your profile...</string>
    </property>
   </action>
  </widget>

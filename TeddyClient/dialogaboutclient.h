@@ -15,5 +15,7 @@ private slots:
     void on_pushButton_clicked();
 private:
     MyClient client;
+    QPalette pal;
+    QColor windowColor;
     Ui::DialogAboutClient *ui;
 };

@@ -1,5 +1,6 @@
 #pragma once
 #include <QListWidgetItem>
+#include <QColorDialog>
 #include <QCloseEvent>
 #include <QMainWindow>
 #include <QSslSocket>
@@ -29,19 +30,17 @@ class ClientWindow : public QMainWindow {
 private:
     //Chat
     MyClient client;
-    bool isConnected;
+    bool isConnected, showIP, showTime;
     quint16 dataSize;
     QVector<MyClient *> includedClients;
     //XML
     QFile file;
     QDomDocument doc;
-    QDomElement general;
-    QDomElement date;
-    QDomElement time;
-    QDomElement ip;
-    QDomElement name;
-    QDomElement message;
+    QDomElement general, date, time, ip, name, message;
     QVector<QString> xmlData;
+    //Color
+    QPalette pal;
+    QColor windowColor, myMsgColor, otherMsgColor;
     //Other
     QSettings *settings;
     Ui::ClientWindow *ui;
@@ -67,6 +66,14 @@ private slots:
     void slotSavePath(QString, quint64);
     void on_quitAct_triggered();
     void slotCloseApplication();
+
+    //Меню "View"
+    void on_actionBackColor_triggered();
+    void on_actionMyColorMsg_triggered();
+    void on_actionOtherColorMsg_triggered();
+    void on_actionProfileColor_triggered();
+    void on_actionShowIP_triggered();
+    void on_actionShowTime_triggered();
 
     //Меню "Settings"
     void on_ipPortAct_triggered();
