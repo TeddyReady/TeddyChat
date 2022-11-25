@@ -31,7 +31,7 @@ private:
     //Chat
     MyClient client;
     bool isConnected, showIP, showTime;
-    quint16 dataSize;
+    quint64 dataSize;
     QVector<MyClient *> includedClients;
     //XML
     QFile file;
@@ -63,7 +63,7 @@ private slots:
     void on_connectAct_triggered();
     void on_disconnectAct_triggered();
     void on_saveHistoryAct_triggered();
-    void slotSavePath(QString, quint64);
+    void slotSavePath(QString, quint8);
     void on_quitAct_triggered();
     void slotCloseApplication();
 
@@ -104,4 +104,5 @@ private slots:
     void slotSaveImage(QString, const QPixmap *);
     void showContextMenuOnSendButton(QPoint);
     void slotSendPicture();
+    void slotSendFile();
 };

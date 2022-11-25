@@ -15,10 +15,13 @@ ServerWindow::ServerWindow(QWidget *parent)
     connect(server, SIGNAL(failedValidation()), this, SLOT(slotFailedValidation()));
     connect(server, SIGNAL(clientDisconnected(MyClient *)), this, SLOT(slotClientDisconnected(MyClient *)));
     connect(server, SIGNAL(reNameOnUI(QString, QString)), this, SLOT(slotReNameOnUI(QString, QString)));
+    connect(server, SIGNAL(updateProgressBar(int)), this, SLOT(slotUpdateProgressBar(int)));
     ui->actionReload->setDisabled(true);
     ui->actionStop->setDisabled(true);
     ui->IPLabel->setText(server->ip);
     ui->portLabel->setText(QString::number(server->port));
+    ui->progressBar->setVisible(true);
+    ui->progressBar->setValue(0);
 }
 ServerWindow::~ServerWindow() {
     saveSettings();
@@ -102,6 +105,10 @@ void ServerWindow::slotReNameOnUI(QString name, QString newName){
             break;
         }
     }
+}
+
+void ServerWindow::slotUpdateProgressBar(int value){
+    ui->progressBar->setValue(value);
 }
 
 //General

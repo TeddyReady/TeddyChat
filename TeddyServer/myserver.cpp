@@ -1,6 +1,8 @@
 #include "myserver.h"
 
 MyServer::MyServer() {}
+MyServer::~MyServer() {}
+
 void MyServer::deployServer(){
     if (this->listen(static_cast<QHostAddress>(ip), port)) {
         emit serverStarted(true);
@@ -57,20 +59,20 @@ void MyServer::sendToClient(int command, QString receiver, QString message, int 
     QByteArray data; data.clear();
     QDataStream out(&data, QIODevice::WriteOnly);
     out.setVersion(QDataStream::Qt_5_12);
-    out << (quint16)0 << (quint8)command;
+    out << (quint64)0 << (quint8)command;
     if(command == Commands::SendMessage) {
         out << receiver << message
             << QDate::currentDate().toString()
             << QTime::currentTime().toString();
         out.device()->seek(0);
-        out << quint16(data.size() - sizeof(quint16));
+        out << quint64(data.size() - sizeof(quint64));
         for(int i = 0; i < clients.size(); i++){
             clients[i]->socket->write(data);
         }
     } else if(command == Commands::Authentication || command == Commands::Exit) {
         out << receiver << message;
         out.device()->seek(0);
-        out << quint16(data.size() - sizeof(quint16));
+        out << quint64(data.size() - sizeof(quint64));
         for(int i = 0; i < clients.size(); i++){
             clients[i]->socket->write(data);
         }
@@ -86,7 +88,7 @@ void MyServer::sendToClient(int command, QString receiver, QString message, int 
                 << clients[i]->colorName;
         }
         out.device()->seek(0);
-        out << quint16(data.size() - sizeof(quint16));
+        out << quint64(data.size() - sizeof(quint64));
         clients[clients.size() - 1]->socket->write(data);
     } else if (command == Commands::NewClient) {
         out << clients[clients.size() - 1]->username
@@ -98,11 +100,11 @@ void MyServer::sendToClient(int command, QString receiver, QString message, int 
             << clients[clients.size() - 1]->colorName;
 
         out.device()->seek(0);
-        out << quint16(data.size() - sizeof(quint16));
+        out << quint64(data.size() - sizeof(quint64));
         clients[receiver.toInt()]->socket->write(data);
     } else if (command == Commands::Restart) {
         out.device()->seek(0);
-        out << quint16(data.size() - sizeof(quint16));
+        out << quint64(data.size() - sizeof(quint64));
         for(int i = 0; i < clients.size(); i++){
             clients[i]->socket->write(data);
             emit clientDisconnected(clients[i]);
@@ -114,27 +116,45 @@ void MyServer::sendToClient(int command, QString receiver, QString message, int 
             out << QString::number(option);
         out << message;
         out.device()->seek(0);
-        out << quint16(data.size() - sizeof(quint16));
+        out << quint64(data.size() - sizeof(quint64));
         for(int i = 0; i < clients.size(); i++){
             clients[i]->socket->write(data);
         }
-    } else if (command == Commands::Image) {
+    } else if (command == Commands::SendImage) {
         out << receiver << message
             << QDate::currentDate().toString()
             << QTime::currentTime().toString();
         out.device()->seek(0);
-        out << quint16(data.size() - sizeof(quint16));
+        out << quint64(data.size() - sizeof(quint64));
         for(int i = 0; i < clients.size(); i++){
             clients[i]->socket->write(data);
         }
     } else if (command == Commands::ForceQuit) {
         out.device()->seek(0);
-        out << quint16(data.size() - sizeof(quint16));
+        out << quint64(data.size() - sizeof(quint64));
         clients[clients.size() - 1]->socket->write(data);
         clients.pop_back();
     } else if (command == Commands::ForbiddenName) {
         out.device()->seek(0);
-        out << quint16(data.size() - sizeof(quint16));
+        out << quint64(data.size() - sizeof(quint64));
+        for (int i = 0; i < clients.size(); i++) {
+            if (clients[i]->username == receiver) {
+                clients[i]->socket->write(data);
+                break;
+            }
+        }
+    } else if (command == Commands::Ready) {
+        out.device()->seek(0);
+        out << quint64(data.size() - sizeof(quint64));
+        for (int i = 0; i < clients.size(); i++) {
+            if (clients[i]->username == receiver) {
+                clients[i]->socket->write(data);
+                break;
+            }
+        }
+    } else if (command == Commands::FileAccepted) {
+        out.device()->seek(0);
+        out << quint64(data.size() - sizeof(quint64));
         for (int i = 0; i < clients.size(); i++) {
             if (clients[i]->username == receiver) {
                 clients[i]->socket->write(data);
@@ -146,16 +166,18 @@ void MyServer::sendToClient(int command, QString receiver, QString message, int 
 void MyServer::slotReadyRead(){
     socket = (QSslSocket*)sender();
     QDataStream in(socket);
+    in.setVersion(QDataStream::Qt_5_12);
     //PACKET_DEFENCER
     if (dataSize == 0) {
-        if (socket->bytesAvailable() < (int)sizeof(quint16)) return;
+        if (static_cast<size_t>(socket->bytesAvailable()) < sizeof(quint64)) return;
         in >> dataSize;
     }
-    if (socket->bytesAvailable() < dataSize) return;
+    if (static_cast<quint64>(socket->bytesAvailable()) < dataSize) return;
     else dataSize = 0;
     //END
     quint8 command;
     in >> command;
+    qDebug() << command;
     if(static_cast<int>(command) == Commands::SendMessage) {
         QString name, message;
         in >> name >> message;
@@ -243,8 +265,25 @@ void MyServer::slotReadyRead(){
                 }
             } sendToClient(Commands::DataChanged, name, newData);
         }
-    } else if (static_cast<int>(command) == Commands::Image) {
+    } else if (static_cast<int>(command) == Commands::SendImage) {
         QString name, image; in >> name >> image;
-        sendToClient(Commands::Image, name, image);
+        sendToClient(Commands::SendImage, name, image);
+    } else if (static_cast<int>(command) == Commands::SendFile) {
+        quint64 fileSize, curFileSize = 0; QString name, fileName;
+        in >> name >> fileSize >> fileName;
+        QFile receivedFile("/home/kataich75/qtprojects/TECH/TeddyServer/downloads/" + fileName);
+        if (receivedFile.open(QFile::WriteOnly)) {
+            QDataStream fileWrite(&receivedFile);
+            fileWrite.setVersion(QDataStream::Qt_5_12);
+            while (curFileSize < fileSize) {
+                sendToClient(Commands::Ready);
+                socket->waitForReadyRead(50);
+                QByteArray packet = socket->readAll();
+                curFileSize += fileWrite.writeRawData(packet.data(), packet.size());
+                qDebug() << curFileSize << " vs " << fileSize << " |" << packet.size();
+                emit updateProgressBar(static_cast<int>(static_cast<qreal>(curFileSize) / static_cast<qreal>(fileSize) * 100));
+            } qDebug() << "succes";
+            receivedFile.close(); sendToClient(Commands::FileAccepted, name);
+        }
     }
 }

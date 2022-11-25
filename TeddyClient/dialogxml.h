@@ -17,7 +17,7 @@ private slots:
     void on_hideOption_stateChanged(int arg1);
     void on_saveBtn_clicked();
 signals:
-    void savePath(QString, quint64);
+    void savePath(QString, quint8);
 private:
     Ui::DialogXML *ui;
 };

@@ -6,11 +6,12 @@
 
 enum Status {Online, NotInPlace, NotDisturb, Other};
 enum Commands {
-    SendMessage, Authentication, Exit, 
-        UpdateDataBase, NewClient,
-    DataChanged, Restart, Image,
-        ForceQuit, PathChanged,
-    ColorChanged, ForbiddenName
+        Authentication, DataChanged,
+    UpdateDataBase, NewClient, ForbiddenName,
+        PathChanged, ColorChanged,
+    SendMessage, SendImage, SendFile,
+        Restart, Exit, ForceQuit,
+           Ready, FileAccepted
 };
 
 class MyClient {

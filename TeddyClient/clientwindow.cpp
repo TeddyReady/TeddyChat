@@ -15,6 +15,7 @@ ClientWindow::ClientWindow(QWidget *parent)
     ui->chatList->setSelectionMode(QAbstractItemView::SelectionMode::NoSelection);
     ui->clientList->setSelectionMode(QAbstractItemView::SelectionMode::NoSelection);
 
+    ui->loadProgress->setHidden(true);
     ui->disconnectAct->setDisabled(true);
     ui->sendButton->setDisabled(true);
     ui->saveHistoryAct->setDisabled(true);
@@ -132,7 +133,7 @@ void ClientWindow::sendToServer(int command, QString message, int option)
     QByteArray data; data.clear();
     QDataStream out(&data, QIODevice::WriteOnly);
     out.setVersion(QDataStream::Qt_5_12);
-    out << (quint16)0 << (quint8)command;
+    out << (quint64)0 << (quint8)command;
     if(command == Commands::SendMessage) {
         out << client.username << message;
     } else if (command == Commands::Authentication) {
@@ -147,11 +148,37 @@ void ClientWindow::sendToServer(int command, QString message, int option)
         if (option == Status::Other || option == Commands::PathChanged || option == Commands::ColorChanged) {
             out << QString::number(option);
         }  out << message;
-    } else if (command == Commands::Image) {
+    } else if (command == Commands::SendImage) {
         out << client.username << message;
+    } else if (command == Commands::SendFile) {
+        ui->loadProgress->setVisible(true);
+        QFile sendingFile(message);
+        QString fileName(message.split("/").last());
+        QDataStream fileRead(&sendingFile);
+        fileRead.setVersion(QDataStream::Qt_5_12);
+        if (sendingFile.open(QIODevice::ReadOnly)) {
+            //Отправляем размер и имя файла
+            out << client.username << static_cast<quint64>(sendingFile.size()) << fileName;
+            out.device()->seek(0);
+            out << (quint64)(data.size() - sizeof(quint64));
+            client.socket->write(data);
+            //Отправляем сам файл
+            quint64 curSendedSize = 0;
+            char bytes[1024]; bytes[1023] = '\0';
+            while (curSendedSize < static_cast<quint64>(sendingFile.size())) {
+                client.socket->waitForReadyRead(50);
+                int lenght = fileRead.readRawData(bytes, sizeof(char) * 1023);
+                QByteArray packet(bytes, sizeof(char) * lenght);
+                curSendedSize += client.socket->write(packet, sizeof(char) * lenght);
+                qDebug() << curSendedSize << " " << static_cast<quint64>(sendingFile.size()) << " |" << lenght;
+                //Обновляем прогресс отправки
+                ui->loadProgress->setValue(static_cast<int>(static_cast<qreal>(curSendedSize) / static_cast<qreal>(sendingFile.size()) * 100));
+            } qDebug()<<"succes";
+            ui->loadProgress->setHidden(true); sendingFile.close();
+        } return;
     }
     out.device()->seek(0);
-    out << (quint16)(data.size() - sizeof(quint16));
+    out << (quint64)(data.size() - sizeof(quint64));
     client.socket->write(data);
 }
 void ClientWindow::slotReadyRead()
@@ -159,10 +186,10 @@ void ClientWindow::slotReadyRead()
     //PACKET_DEFENCER
     QDataStream in(client.socket);
     if (dataSize == 0) {
-        if (client.socket->bytesAvailable() < (int)sizeof(quint16)) return;
+        if (static_cast<size_t>(client.socket->bytesAvailable()) < sizeof(quint64)) return;
         in >> dataSize;
     }
-    if (client.socket->bytesAvailable() < dataSize)
+    if (static_cast<quint64>(client.socket->bytesAvailable()) < dataSize)
         return;
     else dataSize = 0;
     //END
@@ -376,7 +403,7 @@ void ClientWindow::slotReadyRead()
                 }
             }
         }
-    } else if (static_cast<int>(command) == Commands::Image) {
+    } else if (static_cast<int>(command) == Commands::SendImage) {
         QString name, message, date, time;
         in >> name >> message >> date >> time;
         QPixmap image; image.load(message);
@@ -434,6 +461,10 @@ void ClientWindow::slotReadyRead()
         item = new QListWidgetItem("Cannot change username, this name already used!", ui->chatList);
         item->setForeground(Qt::darkYellow);
         ui->chatList->addItem(item);
+    } else if (static_cast<int>(command) == Commands::FileAccepted) {
+        item = new QListWidgetItem("File has been sended!", ui->chatList);
+        item->setForeground(Qt::darkGreen);
+        ui->chatList->addItem(item);
     }
 }
 
@@ -486,9 +517,9 @@ void ClientWindow::on_saveHistoryAct_triggered()
     DialogXML *window = new DialogXML(this);
     window->setWindowTitle("Save your chat history");
     window->show();
-    connect(window, SIGNAL(savePath(QString, quint64)), this, SLOT(slotSavePath(QString, quint64)));
+    connect(window, SIGNAL(savePath(QString, quint8)), this, SLOT(slotSavePath(QString, quint8)));
 }
-void ClientWindow::slotSavePath(QString path, quint64 pass)
+void ClientWindow::slotSavePath(QString path, quint8 pass)
 {
     if(path != ""){
         //Шифрование
@@ -800,14 +831,22 @@ void ClientWindow::slotSaveImage(QString path, const QPixmap *image){
 void ClientWindow::showContextMenuOnSendButton(QPoint pos)
 {
     QMenu *btnMenu = new QMenu;
-    QAction *sendPic = new QAction("Send Image");
+    QAction *sendPic = new QAction("Send image...");
     connect(sendPic, SIGNAL(triggered()), this, SLOT(slotSendPicture()));
+    QAction *sendFile = new QAction("Send file...");
+    connect(sendFile, SIGNAL(triggered()), this, SLOT(slotSendFile()));
 
     btnMenu->addAction(sendPic);
+    btnMenu->addAction(sendFile);
     btnMenu->popup(ui->sendButton->mapToGlobal(pos));
 }
 void ClientWindow::slotSendPicture(){
     QString path = QFileDialog::getOpenFileName(0, QObject::tr("Select sending image"),
                    "/home/kataich75/qtprojects/TECH/TeddyClient/other/", QObject::tr("Image files (*.png)"));
-    if (path != "") sendToServer(Commands::Image, path);
+    if (path != "") sendToServer(Commands::SendImage, path);
+}
+void ClientWindow::slotSendFile(){
+    QString path = QFileDialog::getOpenFileName(0, QObject::tr("Select sending file"),
+                   "/home/kataich75/qtprojects/TECH/TeddyClient/other/", QObject::tr("Select file (*.* all)"));
+    if (path != "") sendToServer(Commands::SendFile, path);
 }

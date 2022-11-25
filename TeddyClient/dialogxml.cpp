@@ -30,7 +30,7 @@ void DialogXML::on_saveBtn_clicked()
 {
     QString path = QFileDialog::getSaveFileName(0, QObject::tr("Select saving path"),
                    "/home/kataich75/qtprojects/TECH/Examples/" + ui->fileLine->text().trimmed() + ".xml", QObject::tr("XML files (*.xml)"));
-    quint64 pass = (quint64)ui->passLine->text().toInt();
+    quint8 pass = static_cast<quint8>(ui->passLine->text().toInt());
     if (path != "")
         emit savePath(path, pass);
     this->close();

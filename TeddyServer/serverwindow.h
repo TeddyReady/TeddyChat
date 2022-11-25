@@ -47,6 +47,7 @@ public slots:
     void slotClientDisconnected(MyClient *client);
     void slotReNameOnUI(QString name, QString newName);
     void slotSavePath(QString path);
+    void slotUpdateProgressBar(int value);
     //Windows
     void slotDialogIPPortParams(QString ip,int port);
 private slots:
