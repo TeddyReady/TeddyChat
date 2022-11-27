@@ -15,7 +15,7 @@ ClientWindow::ClientWindow(QWidget *parent)
     ui->chatList->setSelectionMode(QAbstractItemView::SelectionMode::NoSelection);
     ui->clientList->setSelectionMode(QAbstractItemView::SelectionMode::NoSelection);
 
-    ui->loadProgress->setHidden(true);
+    ui->loadProgress->setValue(0);
     ui->disconnectAct->setDisabled(true);
     ui->sendButton->setDisabled(true);
     ui->saveHistoryAct->setDisabled(true);
@@ -82,6 +82,12 @@ ClientWindow::~ClientWindow()
 {
     saveSettings();
     file.close();
+    if (!ui->actionAutosave->isChecked()) {
+        for (int i = 0; i < fileNames.size(); i++) {
+            QFile curFile(fileNames[i]);
+            curFile.remove();
+        }
+    } fileNames.clear();
     delete settings;
     delete ui;
 }
@@ -111,6 +117,7 @@ void ClientWindow::uploadSettings(){
     //UI
     showIP = settings->value("showModeIP", "1").toBool();
     showTime = settings->value("showModeTime", "1").toBool();
+    ui->actionAutosave->setChecked(settings->value("fileAutoSave", "1").toBool());
 }
 void ClientWindow::saveSettings(){
     settings->setValue("ip", client.ip);
@@ -126,6 +133,7 @@ void ClientWindow::saveSettings(){
     settings->setValue("clientProfileColor", client.colorName);
     settings->setValue("showModeIP", QString::number(ui->actionShowIP->isChecked()));
     settings->setValue("showModeTime", QString::number(ui->actionShowTime->isChecked()));
+    settings->setValue("fileAutoSave", QString::number(ui->actionAutosave->isChecked()));
 }
 
 void ClientWindow::sendToServer(int command, QString message, int option)
@@ -151,7 +159,6 @@ void ClientWindow::sendToServer(int command, QString message, int option)
     } else if (command == Commands::SendImage) {
         out << client.username << message;
     } else if (command == Commands::SendFile) {
-        ui->loadProgress->setVisible(true);
         QFile sendingFile(message);
         QString fileName(message.split("/").last());
         QDataStream fileRead(&sendingFile);
@@ -162,19 +169,30 @@ void ClientWindow::sendToServer(int command, QString message, int option)
             out.device()->seek(0);
             out << (quint64)(data.size() - sizeof(quint64));
             client.socket->write(data);
+            client.socket->waitForReadyRead(100);
             //Отправляем сам файл
             quint64 curSendedSize = 0;
-            char bytes[1024]; bytes[1023] = '\0';
+            char bytes[8]; bytes[7] = '\0';
             while (curSendedSize < static_cast<quint64>(sendingFile.size())) {
-                client.socket->waitForReadyRead(50);
-                int lenght = fileRead.readRawData(bytes, sizeof(char) * 1023);
-                QByteArray packet(bytes, sizeof(char) * lenght);
-                curSendedSize += client.socket->write(packet, sizeof(char) * lenght);
+                int lenght = fileRead.readRawData(bytes, sizeof(char) * 7);
+                data.setRawData(bytes, sizeof(char) * lenght);
+                curSendedSize += client.socket->write(data, sizeof(char) * lenght);
+                client.socket->waitForReadyRead(100);
                 qDebug() << curSendedSize << " " << static_cast<quint64>(sendingFile.size()) << " |" << lenght;
                 //Обновляем прогресс отправки
                 ui->loadProgress->setValue(static_cast<int>(static_cast<qreal>(curSendedSize) / static_cast<qreal>(sendingFile.size()) * 100));
-            } qDebug()<<"succes";
-            ui->loadProgress->setHidden(true); sendingFile.close();
+            } sendingFile.close(); QListWidgetItem *item;
+            if (showTime) {
+                if (showIP)
+                    item = new QListWidgetItem(QTime::currentTime().toString() + " & " + client.ip + "/ You send a file: " + fileName, ui->chatList);
+                else item = new QListWidgetItem(QTime::currentTime().toString() + "/ You send a file: " + fileName, ui->chatList);
+            } else {
+                if (showIP)
+                    item = new QListWidgetItem(client.ip + "/ You send a file: " + fileName, ui->chatList);
+                else item = new QListWidgetItem("You send a file: " + fileName, ui->chatList);
+            }
+            item->setForeground(myMsgColor);
+            ui->chatList->addItem(item);
         } return;
     }
     out.device()->seek(0);
@@ -220,7 +238,7 @@ void ClientWindow::slotReadyRead()
                 else item = new QListWidgetItem(time + "/ " + name + ": " + message, ui->chatList);
             } else {
                 if (showIP)
-                    item = new QListWidgetItem(client.ip + "/ " + name + ": " + message + "\t" + client.ip, ui->chatList);
+                    item = new QListWidgetItem(client.ip + "/ " + name + ": " + message, ui->chatList);
                 else item = new QListWidgetItem(name + ": " + message, ui->chatList);
             }
             item->setForeground(otherMsgColor);
@@ -462,9 +480,45 @@ void ClientWindow::slotReadyRead()
         item->setForeground(Qt::darkYellow);
         ui->chatList->addItem(item);
     } else if (static_cast<int>(command) == Commands::FileAccepted) {
-        item = new QListWidgetItem("File has been sended!", ui->chatList);
-        item->setForeground(Qt::darkGreen);
+        quint64 fileSize, curFileSize = 0; QString name, time, fileName;
+        in >> name >> time >> fileSize >> fileName;
+        sendToServer(Commands::Ready);
+        QFile receivedFile("/home/kataich75/qtprojects/TECH/TeddyClient/downloads/" + fileName);
+        if (receivedFile.open(QFile::WriteOnly)) {
+            QDataStream fileWrite(&receivedFile);
+            fileWrite.setVersion(QDataStream::Qt_5_12);
+            while (curFileSize < fileSize) {
+                sendToServer(Commands::Ready);
+                QByteArray packet = client.socket->readAll();
+                curFileSize += fileWrite.writeRawData(packet.data(), packet.size());
+                client.socket->waitForReadyRead(100);
+                qDebug() << curFileSize << " vs " << fileSize << " |" << packet.size();
+                ui->loadProgress->setValue(static_cast<int>(static_cast<qreal>(curFileSize) / static_cast<qreal>(fileSize) * 100));
+            } receivedFile.close(); fileNames.push_back(receivedFile.fileName());
+        } if (client.status != Status::NotDisturb){
+            QSound::play("/home/kataich75/qtprojects/TECH/TeddyClient/other/newmessage.wav");
+        }
+        if (showTime) {
+            if (showIP)
+                item = new QListWidgetItem(time + " & " + client.ip + "/ " + name + " sended a file: " + fileName, ui->chatList);
+            else item = new QListWidgetItem(time + "/ " + name + " sended a file: " + fileName, ui->chatList);
+        } else {
+            if (showIP)
+                item = new QListWidgetItem(client.ip + "/ " + name + " sended a file: " + fileName, ui->chatList);
+            else item = new QListWidgetItem(name + " sended a file: " + fileName, ui->chatList);
+        }
+        item->setForeground(otherMsgColor);
         ui->chatList->addItem(item);
+        QFile file(receivedFile.fileName());
+        if (file.open(QIODevice::ReadOnly)) {
+            QString fileData = QString::fromLatin1(file.readAll().toBase64().data());
+            //XML
+            xmlData.push_back(QDate::currentDate().toString());
+            xmlData.push_back(time);
+            xmlData.push_back(client.ip);
+            xmlData.push_back(name);
+            xmlData.push_back(QString::fromStdString(md5(fileData.toStdString())));
+        } file.close();
     }
 }
 
@@ -489,6 +543,7 @@ void ClientWindow::slotSocketConnected()
     ui->quitAct->setDisabled(true);
     ui->sendButton->setEnabled(true);
     ui->ipPortAct->setDisabled(true);
+    ui->presets->setDisabled(true);
 }
 
 void ClientWindow::on_disconnectAct_triggered()
@@ -506,6 +561,7 @@ void ClientWindow::slotSocketDisconnected()
     ui->sendButton->setDisabled(true);
     ui->ipPortAct->setEnabled(true);
     ui->clientList->clear();
+    ui->presets->setEnabled(true);
     QListWidgetItem *item = new QListWidgetItem("You has been disconnected from server!", ui->chatList);
     item->setForeground(Qt::red);
     ui->chatList->addItem(item);
@@ -523,8 +579,7 @@ void ClientWindow::slotSavePath(QString path, quint8 pass)
 {
     if(path != ""){
         //Шифрование
-        Cipher crypto;
-        crypto.setKey(pass);
+        Cipher crypto(pass);
         //Формируем XML
         general = doc.createElement("history");
         for (int i = 0; i < xmlData.size(); i += 5){
@@ -550,7 +605,7 @@ void ClientWindow::slotSavePath(QString path, quint8 pass)
             this->ip.appendChild(ip_t);
             general.appendChild(this->name);
             this->name.appendChild(name_t);
-            this->name.appendChild(this->message);
+            general.appendChild(this->message);
             this->message.appendChild(message_t);
         }
         //END
@@ -559,6 +614,23 @@ void ClientWindow::slotSavePath(QString path, quint8 pass)
             QTextStream out(&file);
             doc.save(out, 4);
     }
+}
+
+void ClientWindow::on_actionReadXML_triggered()
+{
+    QString path = QFileDialog::getOpenFileName(0, QObject::tr("Select xml file"),
+                   "/home/kataich75/qtprojects/TECH/TeddyClient/downloads/", QObject::tr("XML files (*.xml)"));
+    if (path != "") {
+        DialogPassword *window = new DialogPassword(this, path);
+        connect(window, SIGNAL(passwordReceived(QString, quint8, bool)), this, SLOT(slotPasswordReceived(QString, quint8, bool)));
+        window->setWindowTitle("Input password for this file");
+        window->show();
+    }
+}
+void ClientWindow::slotPasswordReceived(QString path, quint8 pass, bool encrypted){
+    DialogXMLReader *window = new DialogXMLReader(this, path, pass, encrypted);
+    window->setWindowTitle("Your selected history");
+    window->show();
 }
 
 void ClientWindow::on_quitAct_triggered()
@@ -805,8 +877,10 @@ void ClientWindow::showContextMenuOnMessageField(QPoint pos)
         QMenu *menu = new QMenu(this);
         QAction *clearAct = new QAction("Clear");
         QAction *showAct = new QAction("Show full-size image");
+        QAction *fileAct = new QAction("Save file");
         connect(clearAct, &QAction::triggered, [this]() {
                 ui->chatList->clear();
+                xmlData.clear();
             });
         connect(showAct, &QAction::triggered, [=]() {
                     DialogImage *window = new DialogImage(this, ui->chatList->currentItem()->icon().
@@ -815,9 +889,24 @@ void ClientWindow::showContextMenuOnMessageField(QPoint pos)
                     window->show();
                     connect(window, SIGNAL(saveImage(QString, const QPixmap *)), this, SLOT(slotSaveImage(QString, const QPixmap*)));
             });
+        connect(fileAct, &QAction::triggered, [=]() {
+            QString fileName = ui->chatList->currentItem()->text().split(":").last();
+            for (int i = 0; i < fileNames.size(); i++) {
+                if (fileNames[i].split("/").last() == fileName) {
+                    fileNames.removeAt(i);
+                    break;
+                }
+            }
+        });
         menu->addAction(clearAct);
         if (ui->chatList->currentItem()->text() == "")
             menu->addAction(showAct);
+        for (int i = 0; i < fileNames.size(); i++) {
+            if (fileNames[i].split("/").last() == ui->chatList->currentItem()->text().split(": ").last()) {
+                menu->addAction(fileAct);
+                break;
+            }
+        }
         menu->popup(ui->chatList->viewport()->mapToGlobal(pos));
     }
 }
@@ -849,4 +938,132 @@ void ClientWindow::slotSendFile(){
     QString path = QFileDialog::getOpenFileName(0, QObject::tr("Select sending file"),
                    "/home/kataich75/qtprojects/TECH/TeddyClient/other/", QObject::tr("Select file (*.* all)"));
     if (path != "") sendToServer(Commands::SendFile, path);
+}
+
+void ClientWindow::on_actionIlya_triggered()
+{
+    statusBar()->showMessage("Now you are .. Oh godness.. YOU ARE THE CREATOR!", 2500);
+    ui->actionJasmin->setChecked(false);
+    ui->actionBoris->setChecked(false);
+    ui->actionAnastasia->setChecked(false);
+    client.ip = "127.0.0.1";
+    client.port = 45678;
+    client.username = "Ilya the CREATOR";
+    this->setWindowTitle(client.username);
+    client.status = Status::Other;
+    ui->actionOther->setChecked(true);
+    ui->actionOnline->setChecked(false);
+    ui->actionNotInPlace->setChecked(false);
+    ui->actionDoNotDisturb->setChecked(false);
+    client.statusName = "INCREDYBILIS!";
+    ui->labelStatus->setText(client.statusName);
+    client.path = ":/new/prefix1/other/creator.png";
+    setGeometry(QRect(50, 50, 700, 450));
+    windowColor.setNamedColor("grey");
+    pal.setColor(QPalette::Background, windowColor);
+    setAutoFillBackground(true);
+    setPalette(pal);
+    myMsgColor.setNamedColor("black");
+    otherMsgColor.setNamedColor("blue");
+    client.colorName = "white";
+    showIP = true;
+    showTime = true;
+    ui->actionAutosave->setChecked(true);
+    update();
+}
+
+void ClientWindow::on_actionJasmin_triggered()
+{
+    statusBar()->showMessage("Now you are .. amazing Jasmin!", 2500);
+    ui->actionIlya->setChecked(false);
+    ui->actionBoris->setChecked(false);
+    ui->actionAnastasia->setChecked(false);
+    client.ip = "127.0.0.1";
+    client.port = 45678;
+    client.username = "Jasmin a.k.a the beauty";
+    this->setWindowTitle(client.username);
+    client.status = Status::Other;
+    ui->actionOther->setChecked(true);
+    ui->actionOnline->setChecked(false);
+    ui->actionNotInPlace->setChecked(false);
+    ui->actionDoNotDisturb->setChecked(false);
+    client.statusName = "Always Beautiful";
+    ui->labelStatus->setText(client.statusName);
+    client.path = ":/new/prefix1/other/client3.png";
+    setGeometry(QRect(50, 550, 700, 450));
+    windowColor.setNamedColor("magenta");
+    pal.setColor(QPalette::Background, windowColor);
+    setAutoFillBackground(true);
+    setPalette(pal);
+    myMsgColor.setNamedColor("magenta");
+    otherMsgColor.setNamedColor("darkMagenta");
+    client.colorName = "darkMagenta";
+    showIP = true;
+    showTime = true;
+    ui->actionAutosave->setChecked(true);
+    update();
+}
+
+void ClientWindow::on_actionBoris_triggered()
+{
+    statusBar()->showMessage("Now you are smart Boris!", 2500);
+    ui->actionIlya->setChecked(false);
+    ui->actionJasmin->setChecked(false);
+    ui->actionAnastasia->setChecked(false);
+    client.ip = "127.0.0.1";
+    client.port = 45678;
+    client.username = "Boris Britva";
+    this->setWindowTitle(client.username);
+    client.status = Status::Other;
+    ui->actionOther->setChecked(true);
+    ui->actionOnline->setChecked(false);
+    ui->actionNotInPlace->setChecked(false);
+    ui->actionDoNotDisturb->setChecked(false);
+    client.statusName = "For HONOR!";
+    ui->labelStatus->setText(client.statusName);
+    client.path = ":/new/prefix1/other/client2.png";
+    setGeometry(QRect(1200, 50, 700, 450));
+    windowColor.setNamedColor("cyan");
+    pal.setColor(QPalette::Background, windowColor);
+    setAutoFillBackground(true);
+    setPalette(pal);
+    myMsgColor.setNamedColor("cyan");
+    otherMsgColor.setNamedColor("darkCyan");
+    client.colorName = "darkCyan";
+    showIP = true;
+    showTime = true;
+    ui->actionAutosave->setChecked(true);
+    update();
+}
+
+void ClientWindow::on_actionAnastasia_triggered()
+{
+    statusBar()->showMessage("Now you are cool Anastasia!", 2500);
+    ui->actionIlya->setChecked(false);
+    ui->actionJasmin->setChecked(false);
+    ui->actionBoris->setChecked(false);
+    client.ip = "127.0.0.1";
+    client.port = 45678;
+    client.username = "Anastasia";
+    this->setWindowTitle(client.username);
+    client.status = Status::Other;
+    ui->actionOther->setChecked(true);
+    ui->actionOnline->setChecked(false);
+    ui->actionNotInPlace->setChecked(false);
+    ui->actionDoNotDisturb->setChecked(false);
+    client.statusName = "On work...";
+    ui->labelStatus->setText(client.statusName);
+    client.path = ":/new/prefix1/other/client4.png";
+    setGeometry(QRect(1200, 550, 700, 450));
+    windowColor.setNamedColor("red");
+    pal.setColor(QPalette::Background, windowColor);
+    setAutoFillBackground(true);
+    setPalette(pal);
+    myMsgColor.setNamedColor("red");
+    otherMsgColor.setNamedColor("darkRed");
+    client.colorName = "darkRed";
+    showIP = true;
+    showTime = true;
+    ui->actionAutosave->setChecked(true);
+    update();
 }

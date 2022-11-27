@@ -153,12 +153,33 @@ void MyServer::sendToClient(int command, QString receiver, QString message, int 
             }
         }
     } else if (command == Commands::FileAccepted) {
-        out.device()->seek(0);
-        out << quint64(data.size() - sizeof(quint64));
         for (int i = 0; i < clients.size(); i++) {
-            if (clients[i]->username == receiver) {
-                clients[i]->socket->write(data);
-                break;
+            if (receiver != clients[i]->username) {
+                emit updateProgressBar(0);
+                QFile sendingFile(message);
+                QString fileName(message.split("/").last());
+                QDataStream fileRead(&sendingFile);
+                fileRead.setVersion(QDataStream::Qt_5_12);
+                if (sendingFile.open(QIODevice::ReadOnly)) {
+                    out << receiver << QTime::currentTime().toString()
+                        << static_cast<quint64>(sendingFile.size()) << fileName;
+                    out.device()->seek(0);
+                    out << (quint64)(data.size() - sizeof(quint64));
+                    clients[i]->socket->write(data);
+                    socket->waitForReadyRead(100);
+                    //Отправляем сам файл
+                    quint64 curSendedSize = 0;
+                    char bytes[8]; bytes[7] = '\0';
+                    while (curSendedSize < static_cast<quint64>(sendingFile.size())) {
+                        int lenght = fileRead.readRawData(bytes, sizeof(char) * 7);
+                        data.setRawData(bytes, sizeof(char) * lenght);
+                        curSendedSize += clients[i]->socket->write(data, sizeof(char) * lenght);
+                        socket->waitForReadyRead(100);
+                        qDebug() << curSendedSize << " " << static_cast<quint64>(sendingFile.size()) << " |" << lenght;
+                        //Обновляем прогресс отправки
+                        emit updateProgressBar(static_cast<int>(static_cast<qreal>(curSendedSize) / static_cast<qreal>(sendingFile.size()) * 100));
+                    } sendingFile.close();
+                }
             }
         }
     }
@@ -271,19 +292,19 @@ void MyServer::slotReadyRead(){
     } else if (static_cast<int>(command) == Commands::SendFile) {
         quint64 fileSize, curFileSize = 0; QString name, fileName;
         in >> name >> fileSize >> fileName;
+        sendToClient(Commands::Ready);
         QFile receivedFile("/home/kataich75/qtprojects/TECH/TeddyServer/downloads/" + fileName);
         if (receivedFile.open(QFile::WriteOnly)) {
             QDataStream fileWrite(&receivedFile);
             fileWrite.setVersion(QDataStream::Qt_5_12);
             while (curFileSize < fileSize) {
                 sendToClient(Commands::Ready);
-                socket->waitForReadyRead(50);
                 QByteArray packet = socket->readAll();
                 curFileSize += fileWrite.writeRawData(packet.data(), packet.size());
-                qDebug() << curFileSize << " vs " << fileSize << " |" << packet.size();
+                socket->waitForReadyRead(100);
+                //qDebug() << curFileSize << " vs " << fileSize << " |" << packet.size();
                 emit updateProgressBar(static_cast<int>(static_cast<qreal>(curFileSize) / static_cast<qreal>(fileSize) * 100));
-            } qDebug() << "succes";
-            receivedFile.close(); sendToClient(Commands::FileAccepted, name);
+            } receivedFile.close(); sendToClient(Commands::FileAccepted, name, receivedFile.fileName());
         }
     }
 }

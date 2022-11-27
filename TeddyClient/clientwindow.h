@@ -1,5 +1,4 @@
 #pragma once
-#include <QListWidgetItem>
 #include <QColorDialog>
 #include <QCloseEvent>
 #include <QMainWindow>
@@ -8,18 +7,17 @@
 #include <QBuffer>
 #include <QVector>
 #include <QSound>
-#include <QTime>
-#include <QFile>
 
 #include "dialogotherstatus.h"
 #include "dialogaboutclient.h"
 #include "dialogaboutautor.h"
+#include "dialogxmlreader.h"
 #include "dialogusername.h"
 #include "dialogipport.h"
 #include "dialogimage.h"
 #include "dialogexit.h"
 #include "dialogxml.h"
-#include "cipher.h"
+#include "md5.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class ClientWindow; }
@@ -42,6 +40,7 @@ private:
     QPalette pal;
     QColor windowColor, myMsgColor, otherMsgColor;
     //Other
+    QVector<QString> fileNames;
     QSettings *settings;
     Ui::ClientWindow *ui;
 
@@ -64,6 +63,8 @@ private slots:
     void on_disconnectAct_triggered();
     void on_saveHistoryAct_triggered();
     void slotSavePath(QString, quint8);
+    void on_actionReadXML_triggered();
+    void slotPasswordReceived(QString, quint8, bool);
     void on_quitAct_triggered();
     void slotCloseApplication();
 
@@ -105,4 +106,8 @@ private slots:
     void showContextMenuOnSendButton(QPoint);
     void slotSendPicture();
     void slotSendFile();
+    void on_actionIlya_triggered();
+    void on_actionJasmin_triggered();
+    void on_actionBoris_triggered();
+    void on_actionAnastasia_triggered();
 };

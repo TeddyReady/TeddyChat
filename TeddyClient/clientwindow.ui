@@ -208,12 +208,15 @@
     <addaction name="actionAvatar"/>
     <addaction name="nameAct"/>
     <addaction name="menuEdit_status"/>
+    <addaction name="separator"/>
+    <addaction name="actionAutosave"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
      <string>Help</string>
     </property>
     <addaction name="appAct"/>
+    <addaction name="separator"/>
    </widget>
    <widget class="QMenu" name="menuFile">
     <property name="title">
@@ -223,6 +226,7 @@
     <addaction name="disconnectAct"/>
     <addaction name="separator"/>
     <addaction name="saveHistoryAct"/>
+    <addaction name="actionReadXML"/>
     <addaction name="separator"/>
     <addaction name="quitAct"/>
    </widget>
@@ -239,11 +243,22 @@
      <addaction name="actionMyColorMsg"/>
      <addaction name="actionOtherColorMsg"/>
     </widget>
+    <widget class="QMenu" name="presets">
+     <property name="title">
+      <string>Presets</string>
+     </property>
+     <addaction name="actionIlya"/>
+     <addaction name="actionJasmin"/>
+     <addaction name="actionBoris"/>
+     <addaction name="actionAnastasia"/>
+    </widget>
     <addaction name="actionBackColor"/>
     <addaction name="menuSet_messages_or_profile_color"/>
     <addaction name="separator"/>
     <addaction name="actionShowIP"/>
     <addaction name="actionShowTime"/>
+    <addaction name="separator"/>
+    <addaction name="presets"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuView"/>
@@ -417,6 +432,51 @@
   <action name="actionProfileColor">
    <property name="text">
     <string>Set color of your profile...</string>
+   </property>
+  </action>
+  <action name="actionAutosave">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>File autosave</string>
+   </property>
+  </action>
+  <action name="actionReadXML">
+   <property name="text">
+    <string>Read XML history...</string>
+   </property>
+  </action>
+  <action name="actionIlya">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Ilya</string>
+   </property>
+  </action>
+  <action name="actionJasmin">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Jasmin</string>
+   </property>
+  </action>
+  <action name="actionBoris">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Boris</string>
+   </property>
+  </action>
+  <action name="actionAnastasia">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Anastasia</string>
    </property>
   </action>
  </widget>

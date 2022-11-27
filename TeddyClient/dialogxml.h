@@ -2,6 +2,7 @@
 #include <QDomDocument>
 #include <QFileDialog>
 #include <QDialog>
+#include <QTime>
 
 namespace Ui {
 class DialogXML;

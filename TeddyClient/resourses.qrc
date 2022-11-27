@@ -2,5 +2,8 @@
     <qresource prefix="/new/prefix1">
         <file>other/creator.png</file>
         <file>other/client.png</file>
+        <file>other/client2.png</file>
+        <file>other/client3.png</file>
+        <file>other/client4.png</file>
     </qresource>
 </RCC>

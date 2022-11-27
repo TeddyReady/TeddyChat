@@ -15,9 +15,12 @@ SOURCES += \
     dialogimage.cpp \
     dialogipport.cpp \
     dialogotherstatus.cpp \
+    dialogpassword.cpp \
     dialogusername.cpp \
     dialogxml.cpp \
-    main.cpp
+    dialogxmlreader.cpp \
+    main.cpp \
+    md5.cpp
 
 HEADERS += \
     cipher.h \
@@ -28,8 +31,11 @@ HEADERS += \
     dialogimage.h \
     dialogipport.h \
     dialogotherstatus.h \
+    dialogpassword.h \
     dialogusername.h \
-    dialogxml.h
+    dialogxml.h \
+    dialogxmlreader.h \
+    md5.h
 
 FORMS += \
     clientwindow.ui \
@@ -39,8 +45,10 @@ FORMS += \
     dialogimage.ui \
     dialogipport.ui \
     dialogotherstatus.ui \
+    dialogpassword.ui \
     dialogusername.ui \
-    dialogxml.ui
+    dialogxml.ui \
+    dialogxmlreader.ui
 
 PKGCONFIG += openssl
 

@@ -165,8 +165,9 @@ void ServerWindow::on_actionExit_triggered()
 void ServerWindow::on_actionSave_logs_to_XML_triggered()
 {
     statusBar()->showMessage("Saving history...", 2500);
+    QString name = "logs_at_" + QTime::currentTime().toString();
     QString path = QFileDialog::getSaveFileName(0, QObject::tr("Save server logs.."),
-                   "/home/kataich75/qtprojects/TECH/Examples/" + QString("example").trimmed() + ".xml", QObject::tr("XML files (*.xml)"));
+                   "/home/kataich75/qtprojects/TECH/TeddyServer/downloads/" + name.trimmed() + ".xml", QObject::tr("XML files (*.xml)"));
     connect(this, SIGNAL(savePath(QString)), this, SLOT(slotSavePath(QString)));
     if (path != "")
         emit savePath(path);
