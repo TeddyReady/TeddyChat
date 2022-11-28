@@ -7,7 +7,7 @@ ServerWindow::ServerWindow(QWidget *parent)
 {
     ui->setupUi(this);
     server = new MyServer;
-    settings = new QSettings("/home/kataich75/qtprojects/TECH/TeddyServer/other/settings.ini", QSettings::IniFormat, this);
+    settings = new QSettings(otherPath + "settings.ini", QSettings::IniFormat, this);
     uploadSettings();
 
     connect(server, SIGNAL(serverStarted(bool)), this, SLOT(slotServerStatus(bool)));
@@ -167,7 +167,7 @@ void ServerWindow::on_actionSave_logs_to_XML_triggered()
     statusBar()->showMessage("Saving history...", 2500);
     QString name = "logs_at_" + QTime::currentTime().toString();
     QString path = QFileDialog::getSaveFileName(0, QObject::tr("Save server logs.."),
-                   "/home/kataich75/qtprojects/TECH/TeddyServer/downloads/" + name.trimmed() + ".xml", QObject::tr("XML files (*.xml)"));
+                   downloadPath + name.trimmed() + ".xml", QObject::tr("XML files (*.xml)"));
     connect(this, SIGNAL(savePath(QString)), this, SLOT(slotSavePath(QString)));
     if (path != "")
         emit savePath(path);

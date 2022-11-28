@@ -12,6 +12,7 @@
 
 #include "keygenerator.h"
 #include "../myclient.h"
+#include "constants.h"
 class MyClient;
 
 class MyServer: public QTcpServer {
@@ -20,6 +21,7 @@ public:
     QString ip;
     int port;
     QVector<MyClient *> clients;
+    QVector<QString> sendList;
     QSslSocket *socket;
     quint64 dataSize = 0;
 

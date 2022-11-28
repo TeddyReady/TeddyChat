@@ -29,7 +29,7 @@ void DialogXML::on_hideOption_stateChanged(int arg)
 void DialogXML::on_saveBtn_clicked()
 {
     QString path = QFileDialog::getSaveFileName(0, QObject::tr("Select saving path"),
-                   "/home/kataich75/qtprojects/TECH/TeddyClient/downloads/" + ui->fileLine->text().trimmed() + ".xml", QObject::tr("XML files (*.xml)"));
+                   downloadPath + ui->fileLine->text().trimmed() + ".xml", QObject::tr("XML files (*.xml)"));
     quint8 pass = static_cast<quint8>(ui->passLine->text().toInt());
     if (path != "")
         emit savePath(path, pass);

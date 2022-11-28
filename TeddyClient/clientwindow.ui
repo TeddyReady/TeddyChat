@@ -257,6 +257,7 @@
     <addaction name="separator"/>
     <addaction name="actionShowIP"/>
     <addaction name="actionShowTime"/>
+    <addaction name="actionShowLB"/>
     <addaction name="separator"/>
     <addaction name="presets"/>
    </widget>
@@ -477,6 +478,14 @@
    </property>
    <property name="text">
     <string>Anastasia</string>
+   </property>
+  </action>
+  <action name="actionShowLB">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Show loadbar</string>
    </property>
   </action>
  </widget>

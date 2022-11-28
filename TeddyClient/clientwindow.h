@@ -1,4 +1,5 @@
 #pragma once
+#include <QDesktopServices>
 #include <QColorDialog>
 #include <QCloseEvent>
 #include <QMainWindow>
@@ -7,6 +8,7 @@
 #include <QBuffer>
 #include <QVector>
 #include <QSound>
+#include <QUrl>
 
 #include "dialogotherstatus.h"
 #include "dialogaboutclient.h"
@@ -30,7 +32,7 @@ private:
     MyClient client;
     bool isConnected, showIP, showTime;
     quint64 dataSize;
-    QVector<MyClient *> includedClients;
+    QVector<std::pair<MyClient *, bool>> includedClients;
     //XML
     QFile file;
     QDomDocument doc;
@@ -106,8 +108,11 @@ private slots:
     void showContextMenuOnSendButton(QPoint);
     void slotSendPicture();
     void slotSendFile();
+
+    //Presets
     void on_actionIlya_triggered();
     void on_actionJasmin_triggered();
     void on_actionBoris_triggered();
     void on_actionAnastasia_triggered();
+    void on_actionShowLB_triggered();
 };

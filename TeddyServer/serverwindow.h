@@ -22,10 +22,7 @@ private:
     //XML
     QFile file;
     QDomDocument doc;
-    QDomElement general;
-    QDomElement date;
-    QDomElement time;
-    QDomElement message;
+    QDomElement general, date, time, message;
     QVector<QString> xmlData;
     QSettings *settings;
     Ui::ServerWindow *ui;

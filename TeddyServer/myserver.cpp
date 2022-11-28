@@ -66,9 +66,15 @@ void MyServer::sendToClient(int command, QString receiver, QString message, int 
             << QTime::currentTime().toString();
         out.device()->seek(0);
         out << quint64(data.size() - sizeof(quint64));
-        for(int i = 0; i < clients.size(); i++){
-            clients[i]->socket->write(data);
-        }
+        //Custom Sending
+        for (int k = 0; k < sendList.size(); k++) {
+            for(int i = 0; i < clients.size(); i++){
+                if (sendList[k] == clients[i]->username) {
+                    clients[i]->socket->write(data);
+                    break;
+                }
+            }
+        } sendList.clear();
     } else if(command == Commands::Authentication || command == Commands::Exit) {
         out << receiver << message;
         out.device()->seek(0);
@@ -126,9 +132,15 @@ void MyServer::sendToClient(int command, QString receiver, QString message, int 
             << QTime::currentTime().toString();
         out.device()->seek(0);
         out << quint64(data.size() - sizeof(quint64));
-        for(int i = 0; i < clients.size(); i++){
-            clients[i]->socket->write(data);
-        }
+        //Custom Sending
+        for (int k = 0; k < sendList.size(); k++) {
+            for(int i = 0; i < clients.size(); i++){
+                if (sendList[k] == clients[i]->username) {
+                    clients[i]->socket->write(data);
+                    break;
+                }
+            }
+        } sendList.clear();
     } else if (command == Commands::ForceQuit) {
         out.device()->seek(0);
         out << quint64(data.size() - sizeof(quint64));
@@ -153,35 +165,39 @@ void MyServer::sendToClient(int command, QString receiver, QString message, int 
             }
         }
     } else if (command == Commands::FileAccepted) {
-        for (int i = 0; i < clients.size(); i++) {
-            if (receiver != clients[i]->username) {
-                emit updateProgressBar(0);
-                QFile sendingFile(message);
-                QString fileName(message.split("/").last());
-                QDataStream fileRead(&sendingFile);
-                fileRead.setVersion(QDataStream::Qt_5_12);
-                if (sendingFile.open(QIODevice::ReadOnly)) {
-                    out << receiver << QTime::currentTime().toString()
-                        << static_cast<quint64>(sendingFile.size()) << fileName;
-                    out.device()->seek(0);
-                    out << (quint64)(data.size() - sizeof(quint64));
-                    clients[i]->socket->write(data);
-                    socket->waitForReadyRead(100);
-                    //Отправляем сам файл
-                    quint64 curSendedSize = 0;
-                    char bytes[8]; bytes[7] = '\0';
-                    while (curSendedSize < static_cast<quint64>(sendingFile.size())) {
-                        int lenght = fileRead.readRawData(bytes, sizeof(char) * 7);
-                        data.setRawData(bytes, sizeof(char) * lenght);
-                        curSendedSize += clients[i]->socket->write(data, sizeof(char) * lenght);
+        //Custom Sending
+        for (int k = 0; k < sendList.size(); k++) {
+            for (int i = 0; i < clients.size(); i++) {
+                qDebug() << sendList[k] << " " << clients[i]->username;
+                if (sendList[k] == clients[i]->username) {
+                    emit updateProgressBar(0);
+                    QFile sendingFile(message);
+                    QString fileName(message.split("/").last());
+                    QDataStream fileRead(&sendingFile);
+                    fileRead.setVersion(QDataStream::Qt_5_12);
+                    if (sendingFile.open(QIODevice::ReadOnly)) {
+                        out << receiver << QTime::currentTime().toString()
+                            << static_cast<quint64>(sendingFile.size()) << fileName;
+                        out.device()->seek(0);
+                        out << (quint64)(data.size() - sizeof(quint64));
+                        clients[i]->socket->write(data);
                         socket->waitForReadyRead(100);
-                        qDebug() << curSendedSize << " " << static_cast<quint64>(sendingFile.size()) << " |" << lenght;
-                        //Обновляем прогресс отправки
-                        emit updateProgressBar(static_cast<int>(static_cast<qreal>(curSendedSize) / static_cast<qreal>(sendingFile.size()) * 100));
-                    } sendingFile.close();
-                }
+                        //Отправляем сам файл
+                        quint64 curSendedSize = 0;
+                        char bytes[8]; bytes[7] = '\0';
+                        while (curSendedSize < static_cast<quint64>(sendingFile.size())) {
+                            int lenght = fileRead.readRawData(bytes, sizeof(char) * 7);
+                            data.setRawData(bytes, sizeof(char) * lenght);
+                            curSendedSize += clients[i]->socket->write(data, sizeof(char) * lenght);
+                            socket->waitForReadyRead(100);
+                            qDebug() << curSendedSize << " " << static_cast<quint64>(sendingFile.size()) << " |" << lenght;
+                            //Обновляем прогресс отправки
+                            emit updateProgressBar(static_cast<int>(static_cast<qreal>(curSendedSize) / static_cast<qreal>(sendingFile.size()) * 100));
+                        } sendingFile.close();
+                    }
+                } break;
             }
-        }
+        } sendList.clear();
     }
 }
 void MyServer::slotReadyRead(){
@@ -200,8 +216,12 @@ void MyServer::slotReadyRead(){
     in >> command;
     qDebug() << command;
     if(static_cast<int>(command) == Commands::SendMessage) {
-        QString name, message;
-        in >> name >> message;
+        QString name, message, otherName; int cnt;
+        in >> name >> message >> cnt;
+        for (int i = 0; i < cnt; i++) {
+            in >> otherName;
+            sendList.push_back(otherName);
+        } sendList.push_back(name);
         sendToClient(Commands::SendMessage, name, message);
     } else if(static_cast<int>(command) == Commands::Authentication){
         QString ip, port, name, status, date, time, path, customStatus, colorName;
@@ -287,13 +307,22 @@ void MyServer::slotReadyRead(){
             } sendToClient(Commands::DataChanged, name, newData);
         }
     } else if (static_cast<int>(command) == Commands::SendImage) {
-        QString name, image; in >> name >> image;
+        QString name, image, otherName; int cnt;
+        in >> name >> image >> cnt;
+        for (int i = 0; i < cnt; i++) {
+            in >> otherName;
+            sendList.push_back(otherName);
+        } sendList.push_back(name);
         sendToClient(Commands::SendImage, name, image);
     } else if (static_cast<int>(command) == Commands::SendFile) {
-        quint64 fileSize, curFileSize = 0; QString name, fileName;
-        in >> name >> fileSize >> fileName;
+        quint64 fileSize, curFileSize = 0; QString name, fileName, otherName; int cnt;
+        in >> name >> fileSize >> fileName >> cnt;
+        for (int i = 0; i < cnt; i++) {
+            in >> otherName;
+            sendList.push_back(otherName);
+        }
         sendToClient(Commands::Ready);
-        QFile receivedFile("/home/kataich75/qtprojects/TECH/TeddyServer/downloads/" + fileName);
+        QFile receivedFile(downloadPath + fileName);
         if (receivedFile.open(QFile::WriteOnly)) {
             QDataStream fileWrite(&receivedFile);
             fileWrite.setVersion(QDataStream::Qt_5_12);
@@ -302,7 +331,7 @@ void MyServer::slotReadyRead(){
                 QByteArray packet = socket->readAll();
                 curFileSize += fileWrite.writeRawData(packet.data(), packet.size());
                 socket->waitForReadyRead(100);
-                //qDebug() << curFileSize << " vs " << fileSize << " |" << packet.size();
+                qDebug() << curFileSize << " vs " << fileSize << " |" << packet.size();
                 emit updateProgressBar(static_cast<int>(static_cast<qreal>(curFileSize) / static_cast<qreal>(fileSize) * 100));
             } receivedFile.close(); sendToClient(Commands::FileAccepted, name, receivedFile.fileName());
         }

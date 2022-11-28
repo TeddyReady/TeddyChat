@@ -2,6 +2,8 @@
 #include <QFileDialog>
 #include <QDialog>
 
+#include "constants.h"
+
 namespace Ui {
 class DialogImage;
 }

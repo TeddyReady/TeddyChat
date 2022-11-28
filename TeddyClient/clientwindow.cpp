@@ -7,7 +7,7 @@ ClientWindow::ClientWindow(QWidget *parent)
 {
     ui->setupUi(this);
     //Загружаем настройки
-    settings = new QSettings("/home/kataich75/qtprojects/TECH/TeddyClient/other/settings.ini", QSettings::IniFormat, this);
+    settings = new QSettings(otherPath + "settings.ini", QSettings::IniFormat, this);
     uploadSettings();
 
     ui->chatList->setIconSize(QSize(320, 240));
@@ -53,8 +53,11 @@ ClientWindow::ClientWindow(QWidget *parent)
         ui->labelPort->setHidden(true);
         ui->label_2->setHidden(true);
         ui->label_3->setHidden(true);
-    } if (showTime) ui->actionShowTime->setChecked(true);
+    }
+    if (showTime) ui->actionShowTime->setChecked(true);
     else ui->actionShowTime->setChecked(false);
+    if (ui->actionShowLB->isChecked()) ui->loadProgress->setVisible(true);
+    else ui->loadProgress->setHidden(true);
 
     client.socket = new QSslSocket(this);
     connect(client.socket, SIGNAL(readyRead()), this, SLOT(slotReadyRead()));
@@ -118,6 +121,7 @@ void ClientWindow::uploadSettings(){
     showIP = settings->value("showModeIP", "1").toBool();
     showTime = settings->value("showModeTime", "1").toBool();
     ui->actionAutosave->setChecked(settings->value("fileAutoSave", "1").toBool());
+    ui->actionShowLB->setChecked(settings->value("showLoadBar", "1").toBool());
 }
 void ClientWindow::saveSettings(){
     settings->setValue("ip", client.ip);
@@ -134,6 +138,7 @@ void ClientWindow::saveSettings(){
     settings->setValue("showModeIP", QString::number(ui->actionShowIP->isChecked()));
     settings->setValue("showModeTime", QString::number(ui->actionShowTime->isChecked()));
     settings->setValue("fileAutoSave", QString::number(ui->actionAutosave->isChecked()));
+    settings->setValue("showLoadBar", QString::number(ui->actionShowLB->isChecked()));
 }
 
 void ClientWindow::sendToServer(int command, QString message, int option)
@@ -141,9 +146,21 @@ void ClientWindow::sendToServer(int command, QString message, int option)
     QByteArray data; data.clear();
     QDataStream out(&data, QIODevice::WriteOnly);
     out.setVersion(QDataStream::Qt_5_12);
-    out << (quint64)0 << (quint8)command;
+    out << static_cast<quint64>(0) << (quint8)command;
     if(command == Commands::SendMessage) {
         out << client.username << message;
+        //Set receivers
+        int cnt = 0;
+        for (int i = 0; i < includedClients.size(); i++) {
+            if (includedClients[i].second) {
+                cnt++;
+            }
+        } out << cnt;
+        for (int i = 0; i < includedClients.size(); i++) {
+            if (includedClients[i].second) {
+                out << includedClients[i].first->username;
+            }
+        }
     } else if (command == Commands::Authentication) {
         out << client.ip << QString::number(client.port)
             << client.username << QString::number(client.status)
@@ -158,6 +175,18 @@ void ClientWindow::sendToServer(int command, QString message, int option)
         }  out << message;
     } else if (command == Commands::SendImage) {
         out << client.username << message;
+        //Set receivers
+        int cnt = 0;
+        for (int i = 0; i < includedClients.size(); i++) {
+            if (includedClients[i].second) {
+                cnt++;
+            }
+        } out << cnt;
+        for (int i = 0; i < includedClients.size(); i++) {
+            if (includedClients[i].second) {
+                out << includedClients[i].first->username;
+            }
+        }
     } else if (command == Commands::SendFile) {
         QFile sendingFile(message);
         QString fileName(message.split("/").last());
@@ -166,6 +195,18 @@ void ClientWindow::sendToServer(int command, QString message, int option)
         if (sendingFile.open(QIODevice::ReadOnly)) {
             //Отправляем размер и имя файла
             out << client.username << static_cast<quint64>(sendingFile.size()) << fileName;
+            //Set receivers
+            int cnt = 0;
+            for (int i = 0; i < includedClients.size(); i++) {
+                if (includedClients[i].second) {
+                    cnt++;
+                }
+            } out << cnt;
+            for (int i = 0; i < includedClients.size(); i++) {
+                if (includedClients[i].second) {
+                    out << includedClients[i].first->username;
+                }
+            }
             out.device()->seek(0);
             out << (quint64)(data.size() - sizeof(quint64));
             client.socket->write(data);
@@ -181,7 +222,11 @@ void ClientWindow::sendToServer(int command, QString message, int option)
                 qDebug() << curSendedSize << " " << static_cast<quint64>(sendingFile.size()) << " |" << lenght;
                 //Обновляем прогресс отправки
                 ui->loadProgress->setValue(static_cast<int>(static_cast<qreal>(curSendedSize) / static_cast<qreal>(sendingFile.size()) * 100));
-            } sendingFile.close(); QListWidgetItem *item;
+            }
+            sendingFile.close();
+            QFile::copy(sendingFile.fileName() ,downloadPath + fileName);
+            fileNames.push_back(downloadPath + fileName);
+            QListWidgetItem *item;
             if (showTime) {
                 if (showIP)
                     item = new QListWidgetItem(QTime::currentTime().toString() + " & " + client.ip + "/ You send a file: " + fileName, ui->chatList);
@@ -231,7 +276,7 @@ void ClientWindow::slotReadyRead()
             ui->chatList->addItem(item);
         } else {
             if (client.status != Status::NotDisturb)
-                QSound::play("/home/kataich75/qtprojects/TECH/TeddyClient/other/newmessage.wav");
+                QSound::play(otherPath + "newmessage.wav");
             if (showTime) {
                 if (showIP)
                     item = new QListWidgetItem(time + " & " + client.ip + "/ " + name + ": " + message, ui->chatList);
@@ -294,7 +339,7 @@ void ClientWindow::slotReadyRead()
             QString name, status, date, time, path, customStatus, colorName;
             in >> name >> status >> date >> time >> path >> customStatus >> colorName;
             MyClient *ptr = new MyClient("127.0.0.1", 45678, name, status.toInt(), date, time, nullptr, path, customStatus, colorName);
-            includedClients.push_back(ptr);
+            includedClients.push_back(std::make_pair(ptr, true));
             item = new QListWidgetItem(QIcon(path), name, ui->clientList);
             ui->clientList->addItem(item);
         }
@@ -303,7 +348,7 @@ void ClientWindow::slotReadyRead()
         QString name, status, date, time, path, customStatus, colorName;
         in >> name >> status >> date >> time >> path >> customStatus >> colorName;
         MyClient *ptr = new MyClient("127.0.0.1", 45678, name, status.toInt(), date, time, nullptr, path, customStatus, colorName);
-        includedClients.push_back(ptr);
+        includedClients.push_back(std::make_pair(ptr, true));
         item = new QListWidgetItem(QIcon(path), name, ui->clientList);
         ui->clientList->addItem(item);
 
@@ -327,9 +372,9 @@ void ClientWindow::slotReadyRead()
                 item->setForeground(Qt::cyan);
                 ui->chatList->addItem(item);
             } else {
-                for (MyClient *ptr: includedClients) {
-                    if (ptr->username == name) {
-                        ptr->status = message.toInt();
+                for (std::pair<MyClient *, bool> ptr: includedClients) {
+                    if (ptr.first->username == name) {
+                        ptr.first->status = message.toInt();
                         item = new QListWidgetItem("Server: " + name + " status has been updated!", ui->chatList);
                         item->setForeground(Qt::darkCyan);
                         ui->chatList->addItem(item);
@@ -344,10 +389,10 @@ void ClientWindow::slotReadyRead()
                 item->setForeground(Qt::cyan);
                 ui->chatList->addItem(item);
             } else {
-                for (MyClient *ptr: includedClients) {
-                    if (ptr->username == name) {
-                        ptr->status = message.toInt();
-                        ptr->statusName = customStatus;
+                for (std::pair<MyClient *, bool> ptr: includedClients) {
+                    if (ptr.first->username == name) {
+                        ptr.first->status = message.toInt();
+                        ptr.first->statusName = customStatus;
                         item = new QListWidgetItem("Server: " + name + " status has been updated for " + customStatus + "!", ui->chatList);
                         item->setForeground(Qt::darkCyan);
                         ui->chatList->addItem(item);
@@ -362,9 +407,9 @@ void ClientWindow::slotReadyRead()
                 item->setForeground(Qt::cyan);
                 ui->chatList->addItem(item);
             } else {
-                for (MyClient *ptr: includedClients) {
-                    if (ptr->username == name) {
-                        ptr->path = path;
+                for (std::pair<MyClient *, bool> ptr: includedClients) {
+                    if (ptr.first->username == name) {
+                        ptr.first->path = path;
                         for(int i = 0; i < includedClients.size(); i++){
                             if(name == ui->clientList->item(i)->text()){
                                 ui->clientList->item(i)->setIcon(QIcon(path));
@@ -386,9 +431,9 @@ void ClientWindow::slotReadyRead()
                 item->setForeground(tmp);
                 ui->chatList->addItem(item);
             } else {
-                for (MyClient *ptr: includedClients) {
-                    if (ptr->username == name) {
-                        ptr->colorName = colorName;
+                for (std::pair<MyClient *, bool> ptr: includedClients) {
+                    if (ptr.first->username == name) {
+                        ptr.first->colorName = colorName;
                         item = new QListWidgetItem("Server: " + name + " background color has been updated!", ui->chatList);
                         item->setForeground(tmp);
                         ui->chatList->addItem(item);
@@ -404,9 +449,9 @@ void ClientWindow::slotReadyRead()
                 item->setForeground(Qt::cyan);
                 ui->chatList->addItem(item);
             } else {
-                for (MyClient *ptr: includedClients) {
-                    if (ptr->username == name) {
-                        ptr->username = message;
+                for (std::pair<MyClient *, bool> ptr: includedClients) {
+                    if (ptr.first->username == name) {
+                        ptr.first->username = message;
                         for(int i = 0; i < includedClients.size(); i++){
                             if(name == ui->clientList->item(i)->text()){
                                 ui->clientList->item(i)->setText(message);
@@ -441,7 +486,7 @@ void ClientWindow::slotReadyRead()
             ui->chatList->addItem(item);
         } else {
             if (client.status != Status::NotDisturb){
-                QSound::play("/home/kataich75/qtprojects/TECH/TeddyClient/other/newmessage.wav");
+                QSound::play(otherPath + "newmessage.wav");
             }
             if (showTime) {
                 if (showIP)
@@ -483,7 +528,7 @@ void ClientWindow::slotReadyRead()
         quint64 fileSize, curFileSize = 0; QString name, time, fileName;
         in >> name >> time >> fileSize >> fileName;
         sendToServer(Commands::Ready);
-        QFile receivedFile("/home/kataich75/qtprojects/TECH/TeddyClient/downloads/" + fileName);
+        QFile receivedFile(downloadPath + fileName);
         if (receivedFile.open(QFile::WriteOnly)) {
             QDataStream fileWrite(&receivedFile);
             fileWrite.setVersion(QDataStream::Qt_5_12);
@@ -496,7 +541,7 @@ void ClientWindow::slotReadyRead()
                 ui->loadProgress->setValue(static_cast<int>(static_cast<qreal>(curFileSize) / static_cast<qreal>(fileSize) * 100));
             } receivedFile.close(); fileNames.push_back(receivedFile.fileName());
         } if (client.status != Status::NotDisturb){
-            QSound::play("/home/kataich75/qtprojects/TECH/TeddyClient/other/newmessage.wav");
+            QSound::play(otherPath + "newmessage.wav");
         }
         if (showTime) {
             if (showIP)
@@ -619,7 +664,7 @@ void ClientWindow::slotSavePath(QString path, quint8 pass)
 void ClientWindow::on_actionReadXML_triggered()
 {
     QString path = QFileDialog::getOpenFileName(0, QObject::tr("Select xml file"),
-                   "/home/kataich75/qtprojects/TECH/TeddyClient/downloads/", QObject::tr("XML files (*.xml)"));
+                   downloadPath, QObject::tr("XML files (*.xml)"));
     if (path != "") {
         DialogPassword *window = new DialogPassword(this, path);
         connect(window, SIGNAL(passwordReceived(QString, quint8, bool)), this, SLOT(slotPasswordReceived(QString, quint8, bool)));
@@ -711,7 +756,12 @@ void ClientWindow::on_actionShowTime_triggered()
     if (!ui->actionShowTime->isChecked()) showTime = false;
     else showTime = true;
 }
-
+void ClientWindow::on_actionShowLB_triggered()
+{
+    if (ui->actionShowLB->isChecked())
+        ui->loadProgress->setVisible(true);
+    else ui->loadProgress->setHidden(true);
+}
 //Меню "Settings"
 void ClientWindow::on_ipPortAct_triggered()
 {
@@ -732,7 +782,7 @@ void ClientWindow::slotDialogIPPortParams(QString ip, int port)
 void ClientWindow::on_actionAvatar_triggered()
 {
     QString path = QFileDialog::getOpenFileName(0, QObject::tr("Select photo"),
-        "/home/kataich75/qtprojects/TECH/TeddyClient/other/", QObject::tr("Image files (*.png)"));
+        otherPath, QObject::tr("Image files (*.png)"));
     if (path != "") {
         client.path = path;
         if (isConnected) sendToServer(Commands::DataChanged, path, Commands::PathChanged);
@@ -852,19 +902,49 @@ void ClientWindow::on_messageField_returnPressed()
 //UI ClientList
 void ClientWindow::showContextMenu(QPoint pos)
 {
-    if(!includedClients.isEmpty()){
+    if(!includedClients.isEmpty() && ui->clientList->currentItem() != nullptr){
         QMenu *menu = new QMenu(this);
         QAction *infoAct = new QAction("Info about...");
+        QAction *sendAct = new QAction("Send data");
+        sendAct->setCheckable(true);
+        for (int i = 0; i < includedClients.size(); i++) {
+            if (ui->clientList->currentItem()->text() == includedClients[i].first->username) {
+                if (includedClients[i].second) {
+                    sendAct->setChecked(true);
+                    break;
+                } else {
+                    sendAct->setChecked(false);
+                    break;
+                }
+            }
+        }
         connect(infoAct, SIGNAL(triggered()), this, SLOT(slotInfoAbout()));
         menu->addAction(infoAct);
+        connect(sendAct, &QAction::triggered, [=]() {
+            for (int i = 0; i < includedClients.size(); i++) {
+                if (ui->clientList->currentItem()->text() == includedClients[i].first->username) {
+                    if (sendAct->isChecked()) {
+                        includedClients[i].second = true;
+                        sendAct->setChecked(true);
+                        break;
+                    } else {
+                        includedClients[i].second = false;
+                        sendAct->setChecked(false);
+                        break;
+                    }
+                }
+            }
+        });
+        menu->addAction(infoAct);
+        menu->addAction(sendAct);
         menu->popup(ui->clientList->viewport()->mapToGlobal(pos));
     }
 }
 void ClientWindow::slotInfoAbout(){
     for (int i = 0; i < includedClients.size(); i++){
-        if (ui->clientList->currentItem()->text() == includedClients[i]->username) {
-            DialogAboutClient *window = new DialogAboutClient(this, *includedClients[i]);
-            window->setWindowTitle("About " + includedClients[i]->username);
+        if (ui->clientList->currentItem()->text() == includedClients[i].first->username) {
+            DialogAboutClient *window = new DialogAboutClient(this, *includedClients[i].first);
+            window->setWindowTitle("About " + includedClients[i].first->username);
             window->show();
             break;
         }
@@ -878,6 +958,7 @@ void ClientWindow::showContextMenuOnMessageField(QPoint pos)
         QAction *clearAct = new QAction("Clear");
         QAction *showAct = new QAction("Show full-size image");
         QAction *fileAct = new QAction("Save file");
+        QAction *openAct = new QAction("Open file...");
         connect(clearAct, &QAction::triggered, [this]() {
                 ui->chatList->clear();
                 xmlData.clear();
@@ -898,12 +979,23 @@ void ClientWindow::showContextMenuOnMessageField(QPoint pos)
                 }
             }
         });
+        connect(openAct, &QAction::triggered, [=]() {
+            QString fileName = ui->chatList->currentItem()->text().split(": ").last();
+            for (int i = 0; i < fileNames.size(); i++) {
+                if (fileNames[i].split("/").last() == fileName) {
+                    QFile tmp(fileNames[i]);
+                    QDesktopServices::openUrl(QUrl::fromLocalFile(tmp.fileName()));
+                    break;
+                }
+            }
+        });
         menu->addAction(clearAct);
         if (ui->chatList->currentItem()->text() == "")
             menu->addAction(showAct);
         for (int i = 0; i < fileNames.size(); i++) {
             if (fileNames[i].split("/").last() == ui->chatList->currentItem()->text().split(": ").last()) {
                 menu->addAction(fileAct);
+                menu->addAction(openAct);
                 break;
             }
         }
@@ -931,12 +1023,12 @@ void ClientWindow::showContextMenuOnSendButton(QPoint pos)
 }
 void ClientWindow::slotSendPicture(){
     QString path = QFileDialog::getOpenFileName(0, QObject::tr("Select sending image"),
-                   "/home/kataich75/qtprojects/TECH/TeddyClient/other/", QObject::tr("Image files (*.png)"));
+                   otherPath, QObject::tr("Image files (*.png)"));
     if (path != "") sendToServer(Commands::SendImage, path);
 }
 void ClientWindow::slotSendFile(){
     QString path = QFileDialog::getOpenFileName(0, QObject::tr("Select sending file"),
-                   "/home/kataich75/qtprojects/TECH/TeddyClient/other/", QObject::tr("Select file (*.* all)"));
+                   otherPath, QObject::tr("Select file (*.* all)"));
     if (path != "") sendToServer(Commands::SendFile, path);
 }
 
@@ -967,11 +1059,16 @@ void ClientWindow::on_actionIlya_triggered()
     otherMsgColor.setNamedColor("blue");
     client.colorName = "white";
     showIP = true;
+    ui->labelIP->setHidden(false);
+    ui->labelPort->setHidden(false);
+    ui->label_2->setHidden(false);
+    ui->label_3->setHidden(false);
     showTime = true;
     ui->actionAutosave->setChecked(true);
+    ui->actionShowLB->setChecked(true);
+    ui->loadProgress->setVisible(true);
     update();
 }
-
 void ClientWindow::on_actionJasmin_triggered()
 {
     statusBar()->showMessage("Now you are .. amazing Jasmin!", 2500);
@@ -999,11 +1096,16 @@ void ClientWindow::on_actionJasmin_triggered()
     otherMsgColor.setNamedColor("darkMagenta");
     client.colorName = "darkMagenta";
     showIP = true;
+    ui->labelIP->setHidden(false);
+    ui->labelPort->setHidden(false);
+    ui->label_2->setHidden(false);
+    ui->label_3->setHidden(false);
     showTime = true;
     ui->actionAutosave->setChecked(true);
+    ui->actionShowLB->setChecked(true);
+    ui->loadProgress->setVisible(true);
     update();
 }
-
 void ClientWindow::on_actionBoris_triggered()
 {
     statusBar()->showMessage("Now you are smart Boris!", 2500);
@@ -1031,11 +1133,16 @@ void ClientWindow::on_actionBoris_triggered()
     otherMsgColor.setNamedColor("darkCyan");
     client.colorName = "darkCyan";
     showIP = true;
+    ui->labelIP->setHidden(false);
+    ui->labelPort->setHidden(false);
+    ui->label_2->setHidden(false);
+    ui->label_3->setHidden(false);
     showTime = true;
     ui->actionAutosave->setChecked(true);
+    ui->actionShowLB->setChecked(true);
+    ui->loadProgress->setVisible(true);
     update();
 }
-
 void ClientWindow::on_actionAnastasia_triggered()
 {
     statusBar()->showMessage("Now you are cool Anastasia!", 2500);
@@ -1063,7 +1170,13 @@ void ClientWindow::on_actionAnastasia_triggered()
     otherMsgColor.setNamedColor("darkRed");
     client.colorName = "darkRed";
     showIP = true;
+    ui->labelIP->setHidden(false);
+    ui->labelPort->setHidden(false);
+    ui->label_2->setHidden(false);
+    ui->label_3->setHidden(false);
     showTime = true;
     ui->actionAutosave->setChecked(true);
+    ui->actionShowLB->setChecked(true);
+    ui->loadProgress->setVisible(true);
     update();
 }

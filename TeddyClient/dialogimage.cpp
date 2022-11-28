@@ -17,7 +17,7 @@ DialogImage::~DialogImage()
 void DialogImage::on_pushButton_clicked()
 {
     QString path = QFileDialog::getSaveFileName(0, QObject::tr("Select saving path"),
-                   "/home/kataich75/qtprojects/TECH/TeddyClient/other/", QObject::tr("Image files (*.png)"));
+                   downloadPath, QObject::tr("Image files (*.png)"));
     if (path != "")
         emit saveImage(path, ui->imageLabel->pixmap());
     this->close();

@@ -25,6 +25,7 @@ SOURCES += \
 HEADERS += \
     cipher.h \
     clientwindow.h \
+    constants.h \
     dialogaboutautor.h \
     dialogaboutclient.h \
     dialogexit.h \

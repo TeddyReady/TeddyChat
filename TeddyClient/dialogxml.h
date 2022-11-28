@@ -4,6 +4,8 @@
 #include <QDialog>
 #include <QTime>
 
+#include "constants.h"
+
 namespace Ui {
 class DialogXML;
 }

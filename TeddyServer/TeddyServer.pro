@@ -15,6 +15,7 @@ SOURCES += \
     serverwindow.cpp
 
 HEADERS += \
+    constants.h \
     dialogexit.h \
     dialogipport.h \
     keygenerator.h \
