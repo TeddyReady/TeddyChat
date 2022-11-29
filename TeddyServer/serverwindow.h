@@ -37,6 +37,8 @@ public:
     void saveSettings();
 signals:
     void savePath(QString);
+    void cmdRestart();
+    void cmdExit(QString, QString);
 public slots:
     void slotServerStatus(bool online);
     void slotNewConnection(MyClient *client);

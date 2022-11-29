@@ -16,6 +16,8 @@ ServerWindow::ServerWindow(QWidget *parent)
     connect(server, SIGNAL(clientDisconnected(MyClient *)), this, SLOT(slotClientDisconnected(MyClient *)));
     connect(server, SIGNAL(reNameOnUI(QString, QString)), this, SLOT(slotReNameOnUI(QString, QString)));
     connect(server, SIGNAL(updateProgressBar(int)), this, SLOT(slotUpdateProgressBar(int)));
+    connect(this, SIGNAL(cmdRestart()), server, SLOT(slotCmdRestart()));
+    connect(this, SIGNAL(cmdExit(QString, QString)), server, SLOT(slotCmdExit(QString, QString)));
     ui->actionReload->setDisabled(true);
     ui->actionStop->setDisabled(true);
     ui->IPLabel->setText(server->ip);
@@ -128,7 +130,8 @@ void ServerWindow::on_actionReload_triggered()
 {
     ui->chatField->setTextColor(Qt::darkYellow);
     ui->chatField->append(QTime::currentTime().toString() + " Reloading server...");
-    server->sendToClient(Commands::Restart);
+    cmdRestart();
+
     //XML
     xmlData.push_back(QDate::currentDate().toString());
     xmlData.push_back(QTime::currentTime().toString());
@@ -139,7 +142,7 @@ void ServerWindow::on_actionStop_triggered()
     statusBar()->showMessage("Server closing...", 2500);
     server->close();
     for (int i = 0; i < server->clients.size(); i++){
-        server->sendToClient(Commands::Exit, "Server", "Server close this session!");
+        cmdExit("Server", "Server close this session!");
     }
     ui->actionDeploy->setEnabled(true);
     ui->actionReload->setDisabled(true);

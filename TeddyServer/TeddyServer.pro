@@ -12,6 +12,7 @@ SOURCES += \
     keygenerator.cpp \
     main.cpp \
     myserver.cpp \
+    mythread.cpp \
     serverwindow.cpp
 
 HEADERS += \
@@ -20,6 +21,7 @@ HEADERS += \
     dialogipport.h \
     keygenerator.h \
     myserver.h \
+    mythread.h \
     serverwindow.h
 
 FORMS += \
